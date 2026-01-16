@@ -110,7 +110,7 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, category, price, description, icon } = req.body;
+    const { name, category, price, description, icon, imageUrl } = req.body;
 
     logger.info(`🆕 Menu: Creating new item - Name: ${name}, Category: ${category}, Price: ${price}`);
 
@@ -127,7 +127,8 @@ router.post('/', async (req, res) => {
       category,
       price,
       description || '',
-      icon || '🍽️'
+      icon || '🍽️',
+      imageUrl || ''
     );
 
     logger.info(`✅ Menu: Item created successfully - ID: ${newItem.id}, Name: ${newItem.name}`);

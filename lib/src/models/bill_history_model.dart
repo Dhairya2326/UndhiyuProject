@@ -88,9 +88,9 @@ class BillItem {
     return BillItem(
       itemName: json['itemName'] as String,
       icon: json['icon'] as String,
-      quantityInGrams: json['quantityInGrams'] as double,
-      pricePerGram: json['pricePerGram'] as double,
-      totalPrice: json['totalPrice'] as double,
+      quantityInGrams: (json['quantityInGrams'] as num).toDouble(),
+      pricePerGram: (json['pricePerGram'] as num).toDouble(),
+      totalPrice: (json['totalPrice'] as num).toDouble(),
     );
   }
 }

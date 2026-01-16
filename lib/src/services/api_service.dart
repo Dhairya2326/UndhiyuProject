@@ -41,6 +41,9 @@ class ApiService {
                     price: (item['price'] as num).toDouble(),
                     description: item['description'] ?? '',
                     icon: item['icon'] ?? '🍽️',
+                    imageUrl: item['imageUrl'] ?? '',
+                    stockQuantity: (item['stockQuantity'] as num?)?.toDouble() ?? 0,
+                    lowStockThreshold: (item['lowStockThreshold'] as num?)?.toDouble() ?? 0,
                   ))
               .toList();
           return items;
@@ -73,6 +76,8 @@ class ApiService {
                     price: (item['price'] as num).toDouble(),
                     description: item['description'] ?? '',
                     icon: item['icon'] ?? '🍽️',
+                    stockQuantity: (item['stockQuantity'] as num?)?.toDouble() ?? 0,
+                    lowStockThreshold: (item['lowStockThreshold'] as num?)?.toDouble() ?? 0,
                   ))
               .toList();
           return items;
@@ -113,6 +118,7 @@ class ApiService {
     required double price,
     String description = '',
     String icon = '🍽️',
+    String imageUrl = '',
   }) async {
     try {
       final body = jsonEncode({
@@ -121,6 +127,7 @@ class ApiService {
         'price': price,
         'description': description,
         'icon': icon,
+        'imageUrl': imageUrl,
       });
 
       final response = await http.post(
@@ -142,6 +149,9 @@ class ApiService {
             price: (data['data']['price'] as num).toDouble(),
             description: data['data']['description'] ?? '',
             icon: data['data']['icon'] ?? '🍽️',
+            imageUrl: data['data']['imageUrl'] ?? '',
+            stockQuantity: (data['data']['stockQuantity'] as num?)?.toDouble() ?? 0,
+            lowStockThreshold: (data['data']['lowStockThreshold'] as num?)?.toDouble() ?? 0,
           );
         }
       }
@@ -176,6 +186,9 @@ class ApiService {
             price: (data['data']['price'] as num).toDouble(),
             description: data['data']['description'] ?? '',
             icon: data['data']['icon'] ?? '🍽️',
+            imageUrl: data['data']['imageUrl'] ?? '',
+            stockQuantity: (data['data']['stockQuantity'] as num?)?.toDouble() ?? 0,
+            lowStockThreshold: (data['data']['lowStockThreshold'] as num?)?.toDouble() ?? 0,
           );
         }
       }

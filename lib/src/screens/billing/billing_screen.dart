@@ -16,7 +16,7 @@ class BillingScreen extends StatefulWidget {
   State<BillingScreen> createState() => _BillingScreenState();
 }
 
-class _BillingScreenState extends State<BillingScreen> {
+class _BillingScreenState extends State<BillingScreen> with SingleTickerProviderStateMixin {
   final BillingService _billingService = BillingService();
   final ApiService _apiService = ApiService();
   final List<CartItem> _cartItems = [];
@@ -24,12 +24,36 @@ class _BillingScreenState extends State<BillingScreen> {
   List<MenuItem> _menuItems = [];
   bool _isLoadingMenu = true;
   String? _menuError;
-  int _tabIndex = 0; // 0: Quick Bill, 1: Bill, 2: Bill History
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadMenuItems();
+    // Listen to tab changes to fetch data when needed
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        _refreshCurrentTab();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshCurrentTab() async {
+    if (_tabController.index == 0) {
+      await _loadMenuItems();
+    } else if (_tabController.index == 1) {
+      // Refreshing menu items updates stock availability for cart items too
+      await _loadMenuItems();
+    } else if (_tabController.index == 2) {
+      await _loadBillHistory();
+    }
   }
 
   Future<void> _loadMenuItems() async {
@@ -40,15 +64,19 @@ class _BillingScreenState extends State<BillingScreen> {
 
     try {
       final items = await _apiService.fetchMenuItems();
-      setState(() {
-        _menuItems = items;
-        _isLoadingMenu = false;
-      });
+      if (mounted) {
+        setState(() {
+          _menuItems = items;
+          _isLoadingMenu = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _menuError = e.toString();
-        _isLoadingMenu = false;
-      });
+      if (mounted) {
+        setState(() {
+          _menuError = e.toString();
+          _isLoadingMenu = false;
+        });
+      }
     }
   }
 
@@ -88,10 +116,6 @@ class _BillingScreenState extends State<BillingScreen> {
     double discount = 0,
     String notes = '',
   }) async {
-    setState(() {
-      // Show loading if needed, or handle optimally
-    });
-
     try {
       // Call API to create bill
       await _apiService.createBill(
@@ -110,17 +134,27 @@ class _BillingScreenState extends State<BillingScreen> {
       // Clear cart
       setState(() {
         _cartItems.clear();
-        _tabIndex = 1;
       });
 
-      // Show success message
+      // Provide feedback and navigate
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Payment successful! Bill recorded.'),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Order Placed Successfully!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 2),
           ),
         );
+        
+        // Switch to history tab to show the new order
+        _tabController.animateTo(2);
       }
 
       // Refresh history
@@ -130,7 +164,7 @@ class _BillingScreenState extends State<BillingScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Payment Error'),
+            title: const Text('Payment Error', style: TextStyle(color: AppColors.error)),
             content: Text('Failed to record bill: $e'),
             actions: [
               TextButton(
@@ -147,51 +181,124 @@ class _BillingScreenState extends State<BillingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('🥘 Restaurant Billing'),
+        title: const Text(
+          'Shivam Caterers',
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0),
+        ),
         centerTitle: true,
         backgroundColor: AppColors.primary,
         elevation: 0,
-      ),
-      body: Column(
-        children: [
-          // Tab selector
-          Container(
-            color: AppColors.primary,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () {
+               _refreshCurrentTab();
+               ScaffoldMessenger.of(context).showSnackBar(
+                 const SnackBar(content: Text('Refreshing data...'), duration: Duration(milliseconds: 500)),
+               );
+            },
+            tooltip: 'Refresh Data',
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+          tabs: [
+            const Tab(text: 'Menu', icon: Icon(Icons.restaurant_menu)),
+            Tab(
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildTabButton('Quick Bill', 0),
-                  _buildTabButton('Bill', 1),
-                  _buildTabButton('History', 2),
+                   const Icon(Icons.shopping_cart),
+                   const SizedBox(width: 8),
+                   const Text('Cart'),
+                   if (_cartItems.isNotEmpty) ...[
+                     const SizedBox(width: 8),
+                     Container(
+                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                       decoration: BoxDecoration(
+                         color: Colors.white,
+                         borderRadius: BorderRadius.circular(12),
+                       ),
+                       child: Text(
+                         '${_cartItems.length}',
+                         style: const TextStyle(
+                           color: AppColors.primary,
+                           fontWeight: FontWeight.bold,
+                           fontSize: 12,
+                         ),
+                       ),
+                     ),
+                   ],
                 ],
               ),
             ),
-          ),
-
-          // Content
-          Expanded(
-            child: _tabIndex == 0
-                ? _buildFormTab()
-                : _tabIndex == 1
-                ? _buildBillTab()
-                : _buildHistoryTab(),
-          ),
+            const Tab(text: 'History', icon: Icon(Icons.history)),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildFormTab(),
+          _buildBillTab(),
+          _buildHistoryTab(),
         ],
       ),
     );
   }
 
   Widget _buildBillTab() {
+    if (_cartItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Your cart is empty',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _tabController.animateTo(0),
+              icon: const Icon(Icons.restaurant_menu),
+              label: const Text('Browse Menu'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       children: [
         // Bill items
         Expanded(
-          child: BillItemsWidget(
-            cartItems: _cartItems,
-            onRemoveItem: _removeFromCart,
-            onQuantityChanged: _updateQuantity,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BillItemsWidget(
+                  cartItems: _cartItems,
+                  onRemoveItem: _removeFromCart,
+                  onQuantityChanged: _updateQuantity,
+                ),
+              ),
+            ),
           ),
         ),
 
@@ -202,44 +309,27 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Widget _buildHistoryTab() {
-    return BillHistoryScreen(billHistory: _billHistory);
-  }
-
-  Widget _buildTabButton(String label, int index) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _tabIndex = index);
-        if (index == 2) {
-          _loadBillHistory();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: _tabIndex == index ? Colors.white : Colors.transparent,
-              width: 3,
-            ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: _tabIndex == index
-                ? FontWeight.bold
-                : FontWeight.normal,
-          ),
-        ),
+    return Container(
+      color: AppColors.background,
+      child: BillHistoryScreen(
+        billHistory: _billHistory,
+        onRefresh: _loadBillHistory, // Pass Refresh Callback
       ),
     );
   }
 
   Widget _buildFormTab() {
     if (_isLoadingMenu) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary)),
+            SizedBox(height: 16),
+            Text('Loading yummy items...'),
+          ],
+        ),
+      );
     }
 
     if (_menuError != null) {
@@ -247,12 +337,13 @@ class _BillingScreenState extends State<BillingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
             const SizedBox(height: 16),
             Text('Error loading menu: $_menuError'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadMenuItems,
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               child: const Text('Retry'),
             ),
           ],
@@ -262,6 +353,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
     return BillingFormScreen(
       menuItems: _menuItems,
+      onRefresh: _loadMenuItems, // Pass Refresh Callback
       onAddToCart: (cartItem) {
         setState(() {
           bool found = false;
@@ -276,6 +368,19 @@ class _BillingScreenState extends State<BillingScreen> {
             _cartItems.add(cartItem);
           }
         });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${cartItem.menuItem.name} added to cart'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+             action: SnackBarAction(
+              label: 'VIEW CART',
+              textColor: AppColors.primaryLight,
+              onPressed: () => _tabController.animateTo(1),
+            ),
+          ),
+        );
       },
       cartItems: _cartItems,
     );

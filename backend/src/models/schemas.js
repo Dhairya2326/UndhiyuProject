@@ -42,6 +42,20 @@ const menuItemSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    imageUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    stockQuantity: {
+      type: Number,
+      default: 50000, // Default 50kg
+      min: [0, 'Stock cannot be negative'],
+    },
+    lowStockThreshold: {
+      type: Number,
+      default: 5000, // Alert when below 5kg
+    },
     createdAt: {
       type: Date,
       default: Date.now,

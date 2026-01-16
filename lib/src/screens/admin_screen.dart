@@ -13,10 +13,16 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   final ApiService _apiService = ApiService();
   int _tabIndex = 0;
+  
+  // Controllers for Adding
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _iconController = TextEditingController();
+  final _imageUrlController = TextEditingController(); // NEW
+  final _stockController = TextEditingController(text: '50'); // Default 50kg
+  final _thresholdController = TextEditingController(text: '5'); // Default 5kg
+  
   String _selectedCategory = 'Main Dish';
   
   List<MenuItem> _menuItems = [];
@@ -38,6 +44,9 @@ class _AdminScreenState extends State<AdminScreen> {
     _priceController.dispose();
     _descriptionController.dispose();
     _iconController.dispose();
+    _imageUrlController.dispose();
+    _stockController.dispose();
+    _thresholdController.dispose();
     super.dispose();
   }
 
@@ -62,11 +71,11 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _addMenuItem() async {
+    // Removed Icon validation as requested
     if (_nameController.text.isEmpty ||
-        _priceController.text.isEmpty ||
-        _iconController.text.isEmpty) {
+        _priceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
+        const SnackBar(content: Text('Please fill Name and Price fields')),
       );
       return;
     }
@@ -81,18 +90,20 @@ class _AdminScreenState extends State<AdminScreen> {
         description: _descriptionController.text.isNotEmpty
             ? _descriptionController.text
             : 'No description',
-        icon: _iconController.text,
+        icon: _iconController.text.isNotEmpty ? _iconController.text : '🍽️',
+        imageUrl: _imageUrlController.text, // Pass Image URL
       );
 
       _nameController.clear();
       _priceController.clear();
       _descriptionController.clear();
       _iconController.clear();
+      _imageUrlController.clear();
       _selectedCategory = 'Main Dish';
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Menu item added successfully!')),
+          const SnackBar(content: Text('Menu item added!')),
         );
       }
 
@@ -108,6 +119,70 @@ class _AdminScreenState extends State<AdminScreen> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _updateStock(MenuItem item) async {
+    final stockController = TextEditingController(text: (item.stockQuantity / 1000).toString());
+    final thresholdController = TextEditingController(text: (item.lowStockThreshold / 1000).toString());
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Update Stock: ${item.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: stockController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Current Stock (kg)',
+                suffixText: 'kg',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: thresholdController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Low Stock Alert Threshold (kg)',
+                suffixText: 'kg',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final newStock = (double.tryParse(stockController.text) ?? 0) * 1000;
+                final newThreshold = (double.tryParse(thresholdController.text) ?? 0) * 1000;
+
+                await _apiService.updateMenuItem(
+                  id: item.id,
+                  updates: {
+                    'stockQuantity': newStock,
+                    'lowStockThreshold': newThreshold,
+                  },
+                );
+                
+                if (mounted) Navigator.pop(context);
+                _loadMenuItems();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteMenuItem(String id) async {
@@ -155,63 +230,27 @@ class _AdminScreenState extends State<AdminScreen> {
         title: const Text('🔧 Admin Portal'),
         backgroundColor: AppColors.primary,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+            tooltip: 'Go Back',
+          ),
+        ],
       ),
       body: Column(
         children: [
+          // Tabs
           Container(
             color: AppColors.primary,
             child: Row(
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _tabIndex = 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: _tabIndex == 0 ? Colors.white : Colors.transparent,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'Add Item',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: _tabIndex == 0 ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _tabIndex = 1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: _tabIndex == 1 ? Colors.white : Colors.transparent,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'Manage Items',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: _tabIndex == 1 ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _buildTabButton('Add Item', 0),
+                _buildTabButton('Manage Inventory', 1),
               ],
             ),
           ),
@@ -219,6 +258,34 @@ class _AdminScreenState extends State<AdminScreen> {
             child: _tabIndex == 0 ? _buildAddTab() : _buildManageTab(),
           ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildTabButton(String title, int index) {
+      return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tabIndex = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: _tabIndex == index ? Colors.white : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: _tabIndex == index ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -268,20 +335,39 @@ class _AdminScreenState extends State<AdminScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _descriptionController,
-            maxLines: 3,
+            maxLines: 2,
             decoration: const InputDecoration(
               labelText: 'Description (Optional)',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _iconController,
-            decoration: const InputDecoration(
-              labelText: 'Icon/Emoji *',
-              border: OutlineInputBorder(),
-              hintText: 'e.g., 🥘',
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _iconController,
+                  decoration: const InputDecoration(
+                    labelText: 'Icon/Emoji (Optional)',
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., 🥘',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _imageUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'Image URL (Optional)',
+                    border: OutlineInputBorder(),
+                    hintText: 'https://...',
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -315,24 +401,12 @@ class _AdminScreenState extends State<AdminScreen> {
     if (_error != null) {
       return Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
             Text('Error: $_error'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadMenuItems,
-              child: const Text('Retry'),
-            ),
+            ElevatedButton(onPressed: _loadMenuItems, child: const Text('Retry')),
           ],
         ),
-      );
-    }
-
-    if (_menuItems.isEmpty) {
-      return const Center(
-        child: Text('No menu items found. Add some items to get started!'),
       );
     }
 
@@ -341,45 +415,69 @@ class _AdminScreenState extends State<AdminScreen> {
       itemCount: _menuItems.length,
       itemBuilder: (context, index) {
         final item = _menuItems[index];
+        final stockKg = item.stockQuantity / 1000;
+        final isLowStock = item.stockQuantity < item.lowStockThreshold;
+
         return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 6),
           child: ListTile(
-            leading: Text(item.icon, style: const TextStyle(fontSize: 24)),
-            title: Text(item.name),
-            subtitle: Text(
-              '${item.category} • ₹${item.price.toStringAsFixed(3)}/g',
+            leading: SizedBox(
+               width: 50, 
+               height: 50, 
+               child: item.imageUrl.isNotEmpty 
+                  ? Image.network(
+                      item.imageUrl, 
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, o, s) => Center(child: Text(item.icon, style: const TextStyle(fontSize: 24))),
+                    )
+                  : Center(child: Text(item.icon, style: const TextStyle(fontSize: 24))),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deleteMenuItem(item.id),
-            ),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(item.name),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('ID: ${item.id}'),
-                      const SizedBox(height: 8),
-                      Text('Category: ${item.category}'),
-                      const SizedBox(height: 8),
-                      Text('Price: ₹${item.price}/g'),
-                      const SizedBox(height: 8),
-                      Text('Description: ${item.description}'),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
+            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isLowStock ? Colors.red[100] : Colors.green[100],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Stock: ${stockKg.toStringAsFixed(1)} kg',
+                        style: TextStyle(
+                          color: isLowStock ? Colors.red[800] : Colors.green[800],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '₹${item.price.toStringAsFixed(3)}/g',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],
                 ),
-              );
-            },
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_note, color: AppColors.primary),
+                  onPressed: () => _updateStock(item),
+                  tooltip: 'Edit Stock',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _deleteMenuItem(item.id),
+                ),
+              ],
+            ),
           ),
         );
       },

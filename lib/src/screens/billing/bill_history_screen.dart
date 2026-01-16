@@ -5,10 +5,12 @@ import 'package:intl/intl.dart';
 
 class BillHistoryScreen extends StatefulWidget {
   final List<BillRecord> billHistory;
+  final Future<void> Function()? onRefresh;
 
   const BillHistoryScreen({
     super.key,
     required this.billHistory,
+    this.onRefresh,
   });
 
   @override
@@ -22,6 +24,16 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
   void initState() {
     super.initState();
     _displayBills = widget.billHistory;
+  }
+  
+  @override
+  void didUpdateWidget(BillHistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.billHistory != oldWidget.billHistory) {
+      setState(() {
+         _displayBills = widget.billHistory;
+      });
+    }
   }
 
   @override
@@ -38,7 +50,7 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                   const Text(
                     'Bill History',
                     style: TextStyle(
                       fontSize: 20,
@@ -76,32 +88,40 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
 
         // Bills List
         Expanded(
-          child: _displayBills.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          child: RefreshIndicator(
+            onRefresh: widget.onRefresh ?? () async {},
+            child: _displayBills.isEmpty
+                ? Stack(
                     children: [
-                      const Icon(
-                        Icons.history,
-                        size: 48,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No bills recorded yet',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ListView(), // Scrollable to allow RefreshIndicator to work even if empty
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.history,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No bills recorded yet',
+                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _displayBills.length,
+                    itemBuilder: (context, index) {
+                      final bill = _displayBills[_displayBills.length - 1 - index]; // Reverse order
+                      return _buildBillCard(bill);
+                    },
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _displayBills.length,
-                  itemBuilder: (context, index) {
-                    final bill = _displayBills[_displayBills.length - 1 - index]; // Reverse order
-                    return _buildBillCard(bill);
-                  },
-                ),
+          ),
         ),
       ],
     );

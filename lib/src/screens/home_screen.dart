@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
 import 'package:undhiyuapp/src/screens/billing/billing_screen.dart';
-import 'package:undhiyuapp/src/screens/admin_screen.dart';
+import 'package:undhiyuapp/src/screens/admin_login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +15,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const BillingScreen(),
-    const AdminScreen(),
+    const AdminLoginScreen(),
   ];
 
   @override

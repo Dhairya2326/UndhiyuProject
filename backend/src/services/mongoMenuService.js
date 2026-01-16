@@ -57,7 +57,7 @@ class MongoMenuService {
   /**
    * Add new menu item
    */
-  async addMenuItem(name, category, price, description, icon) {
+  async addMenuItem(name, category, price, description, icon, imageUrl = '') {
     try {
       const newItem = new MenuItem({
         name,
@@ -65,6 +65,7 @@ class MongoMenuService {
         price,
         description,
         icon,
+        imageUrl,
       });
       await newItem.save();
       return newItem;

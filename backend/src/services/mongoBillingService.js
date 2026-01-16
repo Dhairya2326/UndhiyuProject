@@ -1,4 +1,4 @@
-const { BillRecord, BillItem } = require('../models/schemas');
+const { BillRecord, BillItem, MenuItem } = require('../models/schemas');
 const logger = require('../utils/logger');
 
 class MongoBillingService {
@@ -7,21 +7,50 @@ class MongoBillingService {
    */
   async createBill(cartItems, discount = 0, paymentMethod = 'cash', notes = '') {
     try {
-      // Convert cart items to bill items
-      const billItems = cartItems.map(cartItem => {
-        const menuItem = cartItem.menuItem;
+      // Validate empty cart
+      if (!cartItems || cartItems.length === 0) {
+        throw new Error('Cart is empty');
+      }
+
+      // 1. Validate Stock first (to prevent partial updates if one fails)
+      for (const cartItem of cartItems) {
+        const menuItemId = cartItem.menuItem.id;
         const quantityInGrams = cartItem.quantityInGrams;
+
+        const itemDoc = await MenuItem.findOne({ id: menuItemId });
+        if (!itemDoc) {
+          throw new Error(`Item not found: ${cartItem.menuItem.name}`);
+        }
+
+        if (itemDoc.stockQuantity < quantityInGrams) {
+          throw new Error(`Insufficient stock for ${itemDoc.name}. Available: ${itemDoc.stockQuantity}g, Requested: ${quantityInGrams}g`);
+        }
+      }
+
+      // 2. Deduct Stock and Prepare Bill Items
+      const billItems = [];
+      for (const cartItem of cartItems) {
+        const menuItemId = cartItem.menuItem.id;
+        const quantityInGrams = cartItem.quantityInGrams;
+
+        // Deduct stock
+        await MenuItem.findOneAndUpdate(
+          { id: menuItemId },
+          { $inc: { stockQuantity: -quantityInGrams } }
+        );
+
+        const menuItem = cartItem.menuItem;
         const pricePerGram = menuItem.price;
         const totalPrice = quantityInGrams * pricePerGram;
 
-        return {
+        billItems.push({
           itemName: menuItem.name,
           icon: menuItem.icon,
           quantityInGrams,
           pricePerGram,
           totalPrice,
-        };
-      });
+        });
+      }
 
       // Calculate subtotal and total
       const subtotal = billItems.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -42,7 +71,7 @@ class MongoBillingService {
       return bill;
     } catch (error) {
       logger.error('Error creating bill:', error.message);
-      throw new Error('Failed to create bill: ' + error.message);
+      throw new Error(error.message);
     }
   }
 

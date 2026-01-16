@@ -5,7 +5,10 @@ class MenuItem {
   final double price;
   final String description;
   final String icon;
+  final String imageUrl;
   final bool available;
+  final double stockQuantity; // in grams
+  final double lowStockThreshold; // in grams
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -16,7 +19,10 @@ class MenuItem {
     required this.price,
     required this.description,
     required this.icon,
+    this.imageUrl = '',
     this.available = true,
+    this.stockQuantity = 0,
+    this.lowStockThreshold = 0,
     this.createdAt,
     this.updatedAt,
   });

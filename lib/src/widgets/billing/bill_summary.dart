@@ -27,158 +27,156 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.grey[100],
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Discount input
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Discount (%)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, -4),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Input Fields
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Discount %',
+                      prefixIcon: const Icon(Icons.percent, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
                     ),
-                    prefixIcon: const Icon(Icons.local_offer),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      setState(() {
+                        discountPercent = double.tryParse(value) ?? 0;
+                      });
+                    },
                   ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    setState(() {
-                      discountPercent = double.tryParse(value) ?? 0;
-                    });
-                  },
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Notes',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Order Notes',
+                      prefixIcon: const Icon(Icons.note, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
                     ),
-                    prefixIcon: const Icon(Icons.notes),
+                    onChanged: (value) => notes = value,
                   ),
-                  maxLines: 1,
-                  onChanged: (value) => notes = value,
                 ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Calculation Rows
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Subtotal', style: TextStyle(color: Colors.grey)),
+                Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            if (discountPercent > 0) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Discount ($discountPercent%)', style: const TextStyle(color: AppColors.error)),
+                  Text('-₹${discountAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-
-          // Bill summary
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary, width: 2),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Total to Pay', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('₹${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              ],
             ),
-            padding: const EdgeInsets.all(16),
+            const SizedBox(height: 24),
+
+            // Payment Methods
+            Row(
+              children: [
+                _buildPaymentButton(
+                  icon: Icons.money,
+                  label: 'CASH',
+                  color: Colors.green,
+                  onTap: () => _processPayment('cash'),
+                ),
+                const SizedBox(width: 12),
+                _buildPaymentButton(
+                  icon: Icons.qr_code_scanner,
+                  label: 'UPI',
+                  color: Colors.blue,
+                  onTap: () => _processPayment('upi'),
+                ),
+                 const SizedBox(width: 12),
+                _buildPaymentButton(
+                  icon: Icons.credit_card,
+                  label: 'CARD',
+                  color: Colors.deepPurple,
+                  onTap: () => _processPayment('card'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: widget.cartItems.isEmpty ? Colors.grey[300] : color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: widget.cartItems.isEmpty ? null : onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Column(
               children: [
-                _buildSummaryRow('Subtotal', subtotal),
-                if (discountPercent > 0) ...[
-                  const SizedBox(height: 8),
-                  _buildSummaryRow(
-                    'Discount ($discountPercent%)',
-                    -discountAmount,
-                    isDiscount: true,
+                Icon(icon, color: widget.cartItems.isEmpty ? Colors.grey : color),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: widget.cartItems.isEmpty ? Colors.grey : color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
                   ),
-                ],
-                const Divider(height: 16),
-                _buildSummaryRow(
-                  'Total Amount',
-                  total,
-                  isTotal: true,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Payment buttons
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: widget.cartItems.isEmpty
-                      ? null
-                      : () {
-                          widget.onPayment(total, 'cash', discount: discountAmount, notes: notes);
-                          _showPaymentConfirmation('Cash Payment');
-                        },
-                  icon: const Icon(Icons.money),
-                  label: const Text('Cash Payment'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: Colors.green,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: widget.cartItems.isEmpty
-                      ? null
-                      : () {
-                          widget.onPayment(total, 'upi', discount: discountAmount, notes: notes);
-                          _showPaymentConfirmation('UPI Payment');
-                        },
-                  icon: const Icon(Icons.qr_code),
-                  label: const Text('UPI Payment'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: Colors.blue,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryRow(
-    String label,
-    double amount, {
-    bool isTotal = false,
-    bool isDiscount = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? 18 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isDiscount ? Colors.red : Colors.black,
-          ),
-        ),
-        Text(
-          '₹${amount.toStringAsFixed(0)}',
-          style: TextStyle(
-            fontSize: isTotal ? 18 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isTotal ? AppColors.primary : (isDiscount ? Colors.red : Colors.black),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showPaymentConfirmation(String method) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$method confirmed - ₹${total.toStringAsFixed(0)}'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  void _processPayment(String method) {
+    widget.onPayment(total, method, discount: discountAmount, notes: notes);
   }
 }
