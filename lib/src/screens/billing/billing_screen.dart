@@ -52,8 +52,6 @@ class _BillingScreenState extends State<BillingScreen> {
     }
   }
 
-
-
   void _removeFromCart(CartItem cartItem) {
     setState(() {
       _cartItems.remove(cartItem);
@@ -66,55 +64,84 @@ class _BillingScreenState extends State<BillingScreen> {
     });
   }
 
-  void _handlePayment(double amount, String method, {double discount = 0, String notes = ''}) {
-    _billingService.recordTransaction(
-      amount: amount,
-      method: method,
-    );
-
-    // Create bill record
-    final billItems = _cartItems.map((cartItem) {
-      return BillItem(
-        itemName: cartItem.menuItem.name,
-        icon: cartItem.menuItem.icon,
-        quantityInGrams: cartItem.quantityInGrams,
-        pricePerGram: cartItem.menuItem.price,
-        totalPrice: cartItem.totalPrice,
-      );
-    }).toList();
-
-    final subtotal = _cartItems.fold<double>(0, (sum, item) => sum + item.totalPrice);
-    
-    final billRecord = BillRecord(
-      id: 'BILL_${DateTime.now().millisecondsSinceEpoch}',
-      timestamp: DateTime.now(),
-      items: billItems,
-      subtotal: subtotal,
-      discount: discount,
-      totalAmount: amount,
-      paymentMethod: method,
-      notes: notes,
-    );
-
-    _billHistory.add(billRecord);
-
-    if (method == 'upi') {
-      _billingService.payWithUPI(amount);
+  Future<void> _loadBillHistory() async {
+    try {
+      final history = await _apiService.fetchAllBills();
+      if (mounted) {
+        setState(() {
+          _billHistory.clear();
+          _billHistory.addAll(history);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load history: $e')));
+      }
     }
+  }
 
-    // Clear cart
+  Future<void> _handlePayment(
+    double amount,
+    String method, {
+    double discount = 0,
+    String notes = '',
+  }) async {
     setState(() {
-      _cartItems.clear();
-      _tabIndex = 1;
+      // Show loading if needed, or handle optimally
     });
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment successful! Bill recorded.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    try {
+      // Call API to create bill
+      await _apiService.createBill(
+        cartItems: _cartItems,
+        discount: discount,
+        paymentMethod: method,
+        notes: notes,
+      );
+
+      _billingService.recordTransaction(amount: amount, method: method);
+
+      if (method == 'upi') {
+        _billingService.payWithUPI(amount);
+      }
+
+      // Clear cart
+      setState(() {
+        _cartItems.clear();
+        _tabIndex = 1;
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment successful! Bill recorded.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Refresh history
+      _loadBillHistory();
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Payment Error'),
+            content: Text('Failed to record bill: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -148,8 +175,8 @@ class _BillingScreenState extends State<BillingScreen> {
             child: _tabIndex == 0
                 ? _buildFormTab()
                 : _tabIndex == 1
-                    ? _buildBillTab()
-                    : _buildHistoryTab(),
+                ? _buildBillTab()
+                : _buildHistoryTab(),
           ),
         ],
       ),
@@ -169,10 +196,7 @@ class _BillingScreenState extends State<BillingScreen> {
         ),
 
         // Bill summary
-        BillSummaryWidget(
-          cartItems: _cartItems,
-          onPayment: _handlePayment,
-        ),
+        BillSummaryWidget(cartItems: _cartItems, onPayment: _handlePayment),
       ],
     );
   }
@@ -183,7 +207,12 @@ class _BillingScreenState extends State<BillingScreen> {
 
   Widget _buildTabButton(String label, int index) {
     return GestureDetector(
-      onTap: () => setState(() => _tabIndex = index),
+      onTap: () {
+        setState(() => _tabIndex = index);
+        if (index == 2) {
+          _loadBillHistory();
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
@@ -199,7 +228,9 @@ class _BillingScreenState extends State<BillingScreen> {
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
-            fontWeight: _tabIndex == index ? FontWeight.bold : FontWeight.normal,
+            fontWeight: _tabIndex == index
+                ? FontWeight.bold
+                : FontWeight.normal,
           ),
         ),
       ),

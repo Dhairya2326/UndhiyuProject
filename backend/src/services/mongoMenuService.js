@@ -92,15 +92,12 @@ class MongoMenuService {
   }
 
   /**
-   * Delete menu item (soft delete)
+   * Delete menu item (hard delete)
    */
   async deleteMenuItem(id) {
     try {
-      const result = await MenuItem.findOneAndUpdate(
-        { id },
-        { available: false, updatedAt: new Date() },
-        { new: true }
-      );
+      // Hard delete to immediately remove from database
+      const result = await MenuItem.findOneAndDelete({ id });
       return result ? true : false;
     } catch (error) {
       logger.error('Error deleting menu item:', error.message);

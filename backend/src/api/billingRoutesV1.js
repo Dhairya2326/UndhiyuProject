@@ -51,31 +51,6 @@ router.get('/all', async (req, res) => {
 });
 
 /**
- * GET /api/v1/billing/:id
- * Get bill by ID
- */
-router.get('/:id', async (req, res) => {
-  try {
-    const bill = await mongoBillingService.getBillById(req.params.id);
-    if (!bill) {
-      return res.status(404).json({
-        success: false,
-        error: 'Bill not found',
-      });
-    }
-    res.json({
-      success: true,
-      data: bill,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-/**
  * GET /api/v1/billing/range/:startDate/:endDate
  * Get bills by date range
  */
@@ -165,6 +140,31 @@ router.get('/summary/daily/:date', async (req, res) => {
     res.json({
       success: true,
       data: summary,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/v1/billing/:id
+ * Get bill by ID
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const bill = await mongoBillingService.getBillById(req.params.id);
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bill not found',
+      });
+    }
+    res.json({
+      success: true,
+      data: bill,
     });
   } catch (error) {
     res.status(500).json({
