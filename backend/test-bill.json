@@ -1,0 +1,18 @@
+{
+    "cartItems": [
+        {
+            "menuItem": {
+                "id": "item_1737025482820",
+                "name": "Test Undhiyu",
+                "category": "Main Dish",
+                "price": 150,
+                "description": "Test item for verification",
+                "icon": "🥘"
+            },
+            "quantityInGrams": 1000
+        }
+    ],
+    "discount": 0,
+    "paymentMethod": "cash",
+    "notes": "Test bill for verification"
+}
