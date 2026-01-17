@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/models/menu_model.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
+import 'package:undhiyuapp/src/widgets/animations/fade_in_slide.dart';
+import 'package:undhiyuapp/src/widgets/animations/scale_button.dart';
 
 class BillingFormScreen extends StatefulWidget {
   final List<MenuItem> menuItems;
@@ -139,14 +141,14 @@ class _BillingFormScreenState extends State<BillingFormScreen> {
         // Search and Filters
         Container(
           padding: const EdgeInsets.all(16),
-          color: Colors.white,
+          color: AppColors.surface,
           child: Column(
             children: [
               TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search menu items...',
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: Icon(Icons.search, color: AppColors.primary),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
@@ -158,10 +160,10 @@ class _BillingFormScreenState extends State<BillingFormScreen> {
                           },
                         )
                       : null,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: AppColors.surfaceVariant,
                 ),
                 onChanged: (val) => setState(() => _searchQuery = val),
               ),
@@ -177,16 +179,16 @@ class _BillingFormScreenState extends State<BillingFormScreen> {
                         label: Text(cat),
                         selected: isSelected,
                         onSelected: (val) => setState(() => _selectedCategory = cat),
-                        backgroundColor: Colors.white,
-                        selectedColor: AppColors.primaryLight,
-                        checkmarkColor: Colors.white,
+                        backgroundColor: AppColors.surfaceVariant,
+                        selectedColor: AppColors.primary,
+                        checkmarkColor: Colors.black,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
+                          color: isSelected ? Colors.black : AppColors.textSecondary,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(color: isSelected ? Colors.transparent : Colors.grey[300]!),
+                          side: BorderSide(color: isSelected ? Colors.transparent : AppColors.border),
                         ),
                         showCheckmark: false,
                       ),
@@ -205,14 +207,14 @@ class _BillingFormScreenState extends State<BillingFormScreen> {
             child: GridView.builder(
               padding: const EdgeInsets.all(16),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // 2 columns for mobile
-                childAspectRatio: 0.75, // Taller cards
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+                crossAxisCount: 2,
+                childAspectRatio: 0.65, // Taller cards to fix overflow
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
               ),
               itemCount: _filteredItems.length,
               itemBuilder: (context, index) {
-                return _buildMenuItemCard(_filteredItems[index]);
+                return _buildMenuItemCard(_filteredItems[index], index);
               },
             ),
           ),
@@ -221,38 +223,36 @@ class _BillingFormScreenState extends State<BillingFormScreen> {
     );
   }
 
-  Widget _buildMenuItemCard(MenuItem item) {
+  Widget _buildMenuItemCard(MenuItem item, int index) {
     final bool isOutOfStock = item.stockQuantity <= 0;
     final bool isLowStock = item.stockQuantity < item.lowStockThreshold;
     final String stockText = '${(item.stockQuantity / 1000).toStringAsFixed(1)}kg left';
 
-    return GestureDetector(
-      onTap: isOutOfStock ? null : () => _openQuantityDialog(item),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 2,
-              blurRadius: 5,
+    return FadeInSlide(
+      delay: index * 0.05,
+      child: ScaleButton(
+        onTap: isOutOfStock ? null : () => _openQuantityDialog(item),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isLowStock ? AppColors.warning : AppColors.border,
+              width: isLowStock ? 2 : 1,
             ),
-          ],
-          border: isLowStock ? Border.all(color: Colors.orange.withOpacity(0.5), width: 2) : null,
-        ),
+          ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Icon / Image Placeholder
             Expanded(
-              flex: 3,
+              flex: 5,
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: isOutOfStock 
-                      ? Colors.grey[300] 
-                      : (isLowStock ? Colors.orange[50] : AppColors.primaryLight.withOpacity(0.3)),
+                      ? AppColors.surfaceVariant
+                      : (isLowStock ? AppColors.warning.withOpacity(0.1) : AppColors.primary.withOpacity(0.1)),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   image: (item.imageUrl.isNotEmpty && !isOutOfStock) 
                       ? DecorationImage(
@@ -297,98 +297,66 @@ class _BillingFormScreenState extends State<BillingFormScreen> {
             ),
             
             // Item Details
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isOutOfStock ? AppColors.textSecondary : AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  if (!isOutOfStock)
                     Text(
-                      item.name,
+                      stockText,
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isOutOfStock ? Colors.grey : AppColors.textPrimary,
-                        overflow: TextOverflow.ellipsis,
+                        fontSize: 11,
+                        color: isLowStock ? AppColors.warning : AppColors.textSecondary,
                       ),
-                      maxLines: 1,
                     ),
-                    
-                     // Stock Status Bar
-                    if (!isOutOfStock)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: isLowStock ? Colors.red : Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  isLowStock ? 'Low: $stockText' : stockText,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isLowStock ? Colors.red : Colors.grey[600],
-                                    fontWeight: isLowStock ? FontWeight.bold : FontWeight.normal,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          // Mini Progress Bar
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: (item.stockQuantity / 50000).clamp(0.0, 1.0), // Assumes 50kg max for visual
-                              backgroundColor: Colors.grey[200],
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                isLowStock ? Colors.red : Colors.green,
-                              ),
-                              minHeight: 3,
-                            ),
-                          ),
-                        ],
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${(item.price * 1000).toStringAsFixed(0)}/kg',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isOutOfStock ? AppColors.textSecondary : AppColors.primary,
+                          fontSize: 14,
+                        ),
                       ),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '₹${item.price}/g',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                            fontSize: 13,
-                          ),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: isOutOfStock ? AppColors.surfaceVariant : AppColors.primary,
+                          shape: BoxShape.circle,
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.add, size: 16, color: Colors.white),
+                        child: Icon(
+                          Icons.add,
+                          size: 16,
+                          color: isOutOfStock ? AppColors.textTertiary : Colors.black,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+      ),
     );
   }
 }
+

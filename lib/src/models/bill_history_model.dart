@@ -41,7 +41,7 @@ class BillRecord {
   factory BillRecord.fromJson(Map<String, dynamic> json) {
     return BillRecord(
       id: json['id'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: DateTime.parse(json['timestamp'] as String).toLocal(),
       items: (json['items'] as List)
           .map((item) => BillItem.fromJson(item as Map<String, dynamic>))
           .toList(),

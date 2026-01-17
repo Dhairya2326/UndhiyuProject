@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
 import 'package:undhiyuapp/src/models/menu_model.dart';
 import 'package:undhiyuapp/src/services/api_service.dart';
+import 'package:undhiyuapp/src/widgets/animations/fade_in_slide.dart';
+import 'package:undhiyuapp/src/widgets/animations/scale_button.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -228,15 +230,15 @@ class _AdminScreenState extends State<AdminScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('🔧 Admin Portal'),
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.surface,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.home, color: Colors.white),
+            icon: const Icon(Icons.home),
             onPressed: () => Navigator.pop(context),
             tooltip: 'Go Back',
           ),
@@ -246,7 +248,11 @@ class _AdminScreenState extends State<AdminScreen> {
         children: [
           // Tabs
           Container(
-            color: AppColors.primary,
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               children: [
                 _buildTabButton('Add Item', 0),
@@ -263,26 +269,33 @@ class _AdminScreenState extends State<AdminScreen> {
   }
   
   Widget _buildTabButton(String title, int index) {
-      return Expanded(
+    final bool isSelected = _tabIndex == index;
+    return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _tabIndex = index),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: _tabIndex == index ? Colors.white : Colors.transparent,
-                width: 3,
-              ),
-            ),
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : [],
           ),
           child: Text(
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white,
+              color: isSelected ? Colors.black : AppColors.textSecondary,
               fontSize: 16,
-              fontWeight: _tabIndex == index ? FontWeight.bold : FontWeight.normal,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             ),
           ),
         ),
@@ -418,65 +431,141 @@ class _AdminScreenState extends State<AdminScreen> {
         final stockKg = item.stockQuantity / 1000;
         final isLowStock = item.stockQuantity < item.lowStockThreshold;
 
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: ListTile(
-            leading: SizedBox(
-               width: 50, 
-               height: 50, 
-               child: item.imageUrl.isNotEmpty 
-                  ? Image.network(
-                      item.imageUrl, 
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, o, s) => Center(child: Text(item.icon, style: const TextStyle(fontSize: 24))),
-                    )
-                  : Center(child: Text(item.icon, style: const TextStyle(fontSize: 24))),
-            ),
-            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Row(
+        return FadeInSlide(
+          delay: index * 0.05, // Staggered animation
+          child: ScaleButton(
+            child: Card(
+              elevation: 0,
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
                   children: [
+                    // Image/Icon Container
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
-                        color: isLowStock ? Colors.red[100] : Colors.green[100],
-                        borderRadius: BorderRadius.circular(4),
+                        color: AppColors.primaryLight.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        image: item.imageUrl.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(item.imageUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
-                      child: Text(
-                        'Stock: ${stockKg.toStringAsFixed(1)} kg',
-                        style: TextStyle(
-                          color: isLowStock ? Colors.red[800] : Colors.green[800],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                      child: item.imageUrl.isEmpty
+                          ? Center(
+                              child: Text(item.icon,
+                                  style: const TextStyle(fontSize: 28)))
+                          : null,
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 4),
+                          // Stock Pill
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isLowStock
+                                  ? AppColors.error.withOpacity(0.1)
+                                  : AppColors.success.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isLowStock
+                                      ? Icons.warning_amber_rounded
+                                      : Icons.check_circle_outline,
+                                  size: 14,
+                                  color: isLowStock
+                                      ? AppColors.error
+                                      : AppColors.success,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${stockKg.toStringAsFixed(1)} kg',
+                                  style: TextStyle(
+                                    color: isLowStock
+                                        ? AppColors.error
+                                        : AppColors.success,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '₹${item.price.toStringAsFixed(3)}/g',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    
+                    // Price & Actions
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '₹${item.price.toStringAsFixed(3)}/g',
+                          style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            InkWell(
+                              onTap: () => _updateStock(item),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.edit_note,
+                                    color: AppColors.primary, size: 20),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => _deleteMenuItem(item.id),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.delete_outline,
+                                    color: AppColors.error, size: 20),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit_note, color: AppColors.primary),
-                  onPressed: () => _updateStock(item),
-                  tooltip: 'Edit Stock',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteMenuItem(item.id),
-                ),
-              ],
+              ),
             ),
           ),
         );

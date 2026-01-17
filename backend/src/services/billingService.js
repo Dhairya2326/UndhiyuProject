@@ -1,6 +1,9 @@
 const { BillRecord, BillItem, billHistory } = require('../models/bill');
 const menuService = require('./menuService');
 
+// Counter for sequential bill IDs (starts at 1)
+let billCounter = 1;
+
 class BillingService {
   /**
    * Calculate bill total
@@ -32,7 +35,9 @@ class BillingService {
 
     const { subtotal, totalAmount } = this.calculateBillTotal(billItems, discount);
 
-    const billId = `bill_${Date.now()}`;
+    // Generate sequential bill ID with zero-padding (01, 02, ... 11, 12, ...)
+    const billId = String(billCounter).padStart(2, '0');
+    billCounter++; // Increment for next bill
     const bill = new BillRecord(
       billId,
       new Date(),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/screens/home_screen.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
+import 'package:undhiyuapp/src/themes/app_theme.dart';
 
 class UndhiyuApp extends StatelessWidget {
   const UndhiyuApp({super.key});
@@ -10,16 +11,7 @@ class UndhiyuApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Undhiyu Billing',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
+      theme: AppTheme.darkTheme,
       home: const HomeScreen(),
     );
   }

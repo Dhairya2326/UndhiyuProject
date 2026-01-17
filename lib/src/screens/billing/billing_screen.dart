@@ -185,14 +185,13 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
       appBar: AppBar(
         title: const Text(
           'Shivam Caterers',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0),
         ),
         centerTitle: true,
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh),
             onPressed: () {
                _refreshCurrentTab();
                ScaffoldMessenger.of(context).showSnackBar(
@@ -204,8 +203,11 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 4,
+          indicatorSize: TabBarIndicatorSize.tab,
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
           tabs: [
@@ -219,20 +221,10 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
                    const Text('Cart'),
                    if (_cartItems.isNotEmpty) ...[
                      const SizedBox(width: 8),
-                     Container(
-                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                       decoration: BoxDecoration(
-                         color: Colors.white,
-                         borderRadius: BorderRadius.circular(12),
-                       ),
-                       child: Text(
-                         '${_cartItems.length}',
-                         style: const TextStyle(
-                           color: AppColors.primary,
-                           fontWeight: FontWeight.bold,
-                           fontSize: 12,
-                         ),
-                       ),
+                     Badge(
+                       label: Text('${_cartItems.length}'),
+                       backgroundColor: AppColors.primary,
+                       textColor: Colors.black,
                      ),
                    ],
                 ],
@@ -259,11 +251,11 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[400]),
+            const Icon(Icons.shopping_cart_outlined, size: 80, color: AppColors.textSecondary),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Your cart is empty',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 18, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
