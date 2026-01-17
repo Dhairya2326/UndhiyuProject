@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const bodyParser = require('body-parser');
 const { connectDB } = require('./src/config/mongoose');
 const serverConfig = require('./src/config/server');
@@ -12,6 +13,7 @@ const menuRoutes = require('./src/api/menuRoutes');
 const billingRoutes = require('./src/api/billingRoutes');
 const menuRoutesV1 = require('./src/api/menuRoutesV1');
 const billingRoutesV1 = require('./src/api/billingRoutesV1');
+const uploadRoutes = require('./src/api/uploadRoutes');
 
 const app = express();
 
@@ -19,6 +21,9 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(corsMiddleware);
+
+// Serve uploaded images as static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Request logging middleware (after body-parser so req.body is available)
 app.use((req, res, next) => {
@@ -57,6 +62,7 @@ app.use('/api/billing', billingRoutes);
 // API Routes - V1 (MongoDB)
 app.use('/api/v1/menu', menuRoutesV1);
 app.use('/api/v1/billing', billingRoutesV1);
+app.use('/api/v1/upload', uploadRoutes);
 
 // 404 handler
 app.use((req, res) => {

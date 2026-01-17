@@ -1,5 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:http_parser/http_parser.dart';
 import 'package:undhiyuapp/src/models/menu_model.dart';
 import 'package:undhiyuapp/src/models/bill_history_model.dart';
 
@@ -7,7 +9,7 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   
   // Change this to your backend URL
-  static const String baseUrl = 'http://localhost:5000/api/v1';
+  static const String baseUrl = 'http://192.168.29.108:5000/api/v1';
   
   // For production, use:
   // static const String baseUrl = 'https://your-production-url.com/api/v1';
@@ -451,6 +453,61 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ==================== UPLOAD ENDPOINTS ====================
+
+  /// Upload an image file and return the URL
+  /// For web: pass bytes and filename
+  /// For mobile: pass bytes and filename from image_picker
+  Future<String> uploadImage({
+    required Uint8List imageBytes,
+    required String filename,
+  }) async {
+    try {
+      // Determine mime type from filename
+      String mimeType = 'image/jpeg';
+      if (filename.toLowerCase().endsWith('.png')) {
+        mimeType = 'image/png';
+      } else if (filename.toLowerCase().endsWith('.gif')) {
+        mimeType = 'image/gif';
+      } else if (filename.toLowerCase().endsWith('.webp')) {
+        mimeType = 'image/webp';
+      }
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/upload'),
+      );
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'image',
+          imageBytes,
+          filename: filename,
+          contentType: MediaType.parse(mimeType),
+        ),
+      );
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw Exception('Upload timeout'),
+      );
+
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          // Return the full URL to the uploaded image
+          final serverUrl = baseUrl.replaceAll('/api/v1', '');
+          return '$serverUrl${data['data']['imageUrl']}';
+        }
+      }
+      throw Exception('Failed to upload image');
+    } catch (e) {
+      throw Exception('Error uploading image: $e');
     }
   }
 }

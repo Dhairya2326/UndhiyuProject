@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
 import 'package:undhiyuapp/src/models/menu_model.dart';
 import 'package:undhiyuapp/src/services/api_service.dart';
@@ -26,6 +28,12 @@ class _AdminScreenState extends State<AdminScreen> {
   final _thresholdController = TextEditingController(text: '5'); // Default 5kg
   
   String _selectedCategory = 'Main Dish';
+  
+  // Image picker state
+  final ImagePicker _imagePicker = ImagePicker();
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
+  bool _isUploadingImage = false;
   
   List<MenuItem> _menuItems = [];
   bool _isLoading = true;
@@ -72,6 +80,39 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _selectedImageBytes = bytes;
+          _selectedImageName = pickedFile.name;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
+    }
+  }
+
+  void _clearSelectedImage() {
+    setState(() {
+      _selectedImageBytes = null;
+      _selectedImageName = null;
+      _imageUrlController.clear();
+    });
+  }
+
   Future<void> _addMenuItem() async {
     // Removed Icon validation as requested
     if (_nameController.text.isEmpty ||
@@ -85,6 +126,29 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      String? imageUrl;
+      
+      // Upload image if selected
+      if (_selectedImageBytes != null && _selectedImageName != null) {
+        setState(() => _isUploadingImage = true);
+        try {
+          imageUrl = await _apiService.uploadImage(
+            imageBytes: _selectedImageBytes!,
+            filename: _selectedImageName!,
+          );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Image upload failed: $e')),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isUploadingImage = false);
+        }
+      } else if (_imageUrlController.text.isNotEmpty) {
+        imageUrl = _imageUrlController.text;
+      }
+      
       await _apiService.addMenuItem(
         name: _nameController.text,
         category: _selectedCategory,
@@ -93,7 +157,7 @@ class _AdminScreenState extends State<AdminScreen> {
             ? _descriptionController.text
             : 'No description',
         icon: _iconController.text.isNotEmpty ? _iconController.text : '🍽️',
-        imageUrl: _imageUrlController.text, // Pass Image URL
+        imageUrl: imageUrl ?? '',
       );
 
       _nameController.clear();
@@ -101,6 +165,7 @@ class _AdminScreenState extends State<AdminScreen> {
       _descriptionController.clear();
       _iconController.clear();
       _imageUrlController.clear();
+      _clearSelectedImage();
       _selectedCategory = 'Main Dish';
 
       if (mounted) {
@@ -355,32 +420,84 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _iconController,
-                  decoration: const InputDecoration(
-                    labelText: 'Icon/Emoji (Optional)',
-                    border: OutlineInputBorder(),
-                    hintText: 'e.g., 🥘',
-                  ),
+          // Image picker section
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.image, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    const Text('Item Image', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    if (_selectedImageBytes != null || _imageUrlController.text.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: _clearSelectedImage,
+                        icon: const Icon(Icons.close, size: 16),
+                        label: const Text('Clear'),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                      ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: TextField(
-                  controller: _imageUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'Image URL (Optional)',
-                    border: OutlineInputBorder(),
-                    hintText: 'https://...',
+                const SizedBox(height: 12),
+                if (_selectedImageBytes != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(
+                      _selectedImageBytes!,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickImage,
+                          icon: const Icon(Icons.photo_library),
+                          label: const Text('Choose Image'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('or', style: TextStyle(color: AppColors.textSecondary)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _imageUrlController,
+                          decoration: const InputDecoration(
+                            labelText: 'Image URL',
+                            border: OutlineInputBorder(),
+                            hintText: 'https://...',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ],
+                if (_selectedImageName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '📎 $_selectedImageName',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           SizedBox(
