@@ -178,6 +178,46 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
     }
   }
 
+  void _handleEditBill(BillRecord bill) {
+    setState(() {
+      _cartItems.clear();
+      for (final billItem in bill.items) {
+        // Find the matching menu item to ensure we have the full object
+        // If not found (e.g. deleted), we might have issues. 
+        // For now, reconstruct a partial MenuItem or try to find it.
+        
+        final menuItem = _menuItems.firstWhere(
+          (m) => m.name == billItem.itemName, // Match by Name if ID matches or fallback
+          orElse: () => MenuItem(
+            id: 'unknown',
+            name: billItem.itemName,
+            category: 'Unknown',
+            price: billItem.pricePerGram,
+            description: '',
+            icon: billItem.icon,
+            available: true,
+          ),
+        );
+        
+        // If we found it by name/ID, use it. Ideally we should match by ID if BillItem had it.
+        // BillItem in backend has `itemName`, `icon` etc. but originally created from MenuItem.
+        // Let's verify BillRecord model.
+        
+        _cartItems.add(CartItem(
+          menuItem: menuItem,
+          quantityInGrams: billItem.quantityInGrams,
+        ));
+      }
+    });
+
+    // Switch to Cart Tab
+    _tabController.animateTo(1);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Bill loaded into Cart!')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -306,6 +346,7 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
       child: BillHistoryScreen(
         billHistory: _billHistory,
         onRefresh: _loadBillHistory, // Pass Refresh Callback
+        onEditBill: _handleEditBill,
       ),
     );
   }

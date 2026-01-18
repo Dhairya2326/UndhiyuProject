@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/models/menu_model.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
+import 'package:undhiyuapp/src/services/api_service.dart';
 
 class BillSummaryWidget extends StatefulWidget {
   final List<CartItem> cartItems;
@@ -17,8 +18,32 @@ class BillSummaryWidget extends StatefulWidget {
 }
 
 class _BillSummaryWidgetState extends State<BillSummaryWidget> {
+  final ApiService _apiService = ApiService();
   double discountPercent = 0;
   String notes = '';
+  
+  String? _upiName;
+  String? _qrCodeUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPaymentConfig();
+  }
+
+  Future<void> _loadPaymentConfig() async {
+    try {
+      final config = await _apiService.fetchPaymentConfig();
+      if (mounted && config.isNotEmpty) {
+        setState(() {
+          _upiName = config['upiName'];
+          _qrCodeUrl = config['qrCodeUrl'];
+        });
+      }
+    } catch (e) {
+      print('Error loading payment config: $e');
+    }
+  }
 
   double get subtotal => widget.cartItems.fold(0, (sum, item) => sum + item.totalPrice);
   double get discountAmount => (subtotal * discountPercent) / 100;
@@ -26,6 +51,7 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // ... existing build method ...
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -177,6 +203,93 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
   }
 
   void _processPayment(String method) {
-    widget.onPayment(total, method, discount: discountAmount, notes: notes);
+    if (method == 'upi') {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Center(child: Text('Scan QR to Pay')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_upiName != null && _upiName!.isNotEmpty) ...[
+                Text(
+                  _upiName!,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+              ],
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: _qrCodeUrl != null && _qrCodeUrl!.isNotEmpty
+                  ? Image.network(
+                      ApiService.baseUrl.replaceAll('/api/v1', '') + _qrCodeUrl!,
+                      width: 200,
+                      height: 200,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildFallbackQR();
+                      },
+                    )
+                  : _buildFallbackQR(),
+              ),
+              const SizedBox(height: 24),
+              const Text('Total Amount', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 4),
+              Text(
+                '₹${total.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                widget.onPayment(total, method, discount: discountAmount, notes: notes);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Payment Received'),
+            ),
+          ],
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actionsPadding: const EdgeInsets.all(20),
+        ),
+      );
+    } else {
+      widget.onPayment(total, method, discount: discountAmount, notes: notes);
+    }
+  }
+
+  Widget _buildFallbackQR() {
+    return Image.asset(
+      'assets/images/qr_code.jpeg',
+      width: 200,
+      height: 200,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+         return const Icon(Icons.qr_code_2, size: 200, color: Colors.black);
+      },
+    );
   }
 }

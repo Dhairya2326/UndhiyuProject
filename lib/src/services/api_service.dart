@@ -438,6 +438,9 @@ class ApiService {
     }
   }
 
+
+
+
   /// Check backend health
   Future<bool> checkBackendHealth() async {
     try {
@@ -508,6 +511,58 @@ class ApiService {
       throw Exception('Failed to upload image');
     } catch (e) {
       throw Exception('Error uploading image: $e');
+    }
+  }
+  // ==================== SETTINGS ENDPOINTS ====================
+
+  /// Fetch payment configuration
+  Future<Map<String, dynamic>> fetchPaymentConfig() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/settings/payment_config'),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      } else if (response.statusCode == 404) {
+         // Return empty config if not set yet
+         return {};
+      }
+      throw Exception('Failed to fetch payment config');
+    } catch (e) {
+      // Return empty map on error to avoid blocking UI
+      print('Error fetching payment config: $e');
+      return {};
+    }
+  }
+
+  /// Update payment configuration
+  Future<Map<String, dynamic>> updatePaymentConfig(Map<String, dynamic> config) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/settings/payment_config'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'data': config}),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Request timeout'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+      throw Exception('Failed to update payment config');
+    } catch (e) {
+      throw Exception('Error updating payment config: $e');
     }
   }
 }

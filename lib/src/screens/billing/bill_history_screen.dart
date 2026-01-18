@@ -3,14 +3,18 @@ import 'package:undhiyuapp/src/models/bill_history_model.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
 import 'package:intl/intl.dart';
 
+import 'package:undhiyuapp/src/services/api_service.dart';
+
 class BillHistoryScreen extends StatefulWidget {
   final List<BillRecord> billHistory;
   final Future<void> Function()? onRefresh;
+  final Function(BillRecord)? onEditBill;
 
   const BillHistoryScreen({
     super.key,
     required this.billHistory,
     this.onRefresh,
+    this.onEditBill,
   });
 
   @override
@@ -75,13 +79,7 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                'Total Revenue: ₹${_displayBills.fold<double>(0, (sum, bill) => sum + bill.totalAmount).toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.white70,
-                ),
-              ),
+
             ],
           ),
         ),
@@ -93,7 +91,10 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
             child: _displayBills.isEmpty
                 ? Stack(
                     children: [
-                      ListView(), // Scrollable to allow RefreshIndicator to work even if empty
+                      const SingleChildScrollView(
+                        physics: AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(height: 300), // Dummy height to allow pull-to-refresh
+                      ),
                       Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -247,11 +248,111 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 16),
+              SizedBox(
+                  width: double.infinity,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _editBill(bill),
+                          icon: const Icon(Icons.edit, color: AppColors.primary),
+                          label: const Text('Edit / Clone', style: TextStyle(color: AppColors.primary)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.primary),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _deleteBill(bill.id),
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+  Future<void> _editBill(BillRecord bill) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit / Clone Bill'),
+        content: const Text(
+          'This will copy all items from this bill to your current Cart.\n\n'
+          'Your existing cart items (if any) will be cleared.\n'
+          'The original bill will remain until you delete it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('Load to Cart'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      widget.onEditBill?.call(bill);
+    }
+  }
+
+  Future<void> _deleteBill(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Bill'),
+        content: const Text('Are you sure you want to permanently delete this bill?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        final success = await ApiService().deleteBill(id);
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Bill deleted successfully')),
+            );
+            // Refresh the list
+            widget.onRefresh?.call();
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting bill: $e')),
+          );
+        }
+      }
+    }
   }
 }

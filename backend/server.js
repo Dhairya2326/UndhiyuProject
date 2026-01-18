@@ -14,6 +14,7 @@ const billingRoutes = require('./src/api/billingRoutes');
 const menuRoutesV1 = require('./src/api/menuRoutesV1');
 const billingRoutesV1 = require('./src/api/billingRoutesV1');
 const uploadRoutes = require('./src/api/uploadRoutes');
+const settingsRoutes = require('./src/api/settingsRoutes');
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/v1/menu', menuRoutesV1);
 app.use('/api/v1/billing', billingRoutesV1);
 app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 
 // 404 handler
 app.use((req, res) => {

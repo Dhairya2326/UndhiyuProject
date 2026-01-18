@@ -42,11 +42,44 @@ class _AdminScreenState extends State<AdminScreen> {
 
   final List<String> _categories = ['Main Dish', 'Beverages', 'Desserts', 'Snacks', 'Other'];
 
+  // Settings State
+  final _paymentNameController = TextEditingController();
+  final _paymentImageUrlController = TextEditingController();
+  Uint8List? _paymentImageBytes;
+  String? _paymentImageName;
+  bool _isLoadingSettings = false;
+
+  // Dashboard State
+  Map<String, dynamic> _salesSummary = {};
+  bool _isLoadingDashboard = false;
+
   @override
   void initState() {
     super.initState();
     _loadMenuItems();
+    _loadPaymentConfig();
+    _loadDashboardData();
   }
+
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoadingDashboard = true);
+    try {
+      final summary = await _apiService.fetchSalesSummary();
+      if (mounted) {
+        setState(() {
+          _salesSummary = summary;
+          _isLoadingDashboard = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingDashboard = false);
+        // Silently fail or show snackbar? Let's just log it for now
+        debugPrint('Error loading dashboard: $e');
+      }
+    }
+  }
+
 
   @override
   void dispose() {
@@ -57,6 +90,8 @@ class _AdminScreenState extends State<AdminScreen> {
     _imageUrlController.dispose();
     _stockController.dispose();
     _thresholdController.dispose();
+    _paymentNameController.dispose();
+    _paymentImageUrlController.dispose();
     super.dispose();
   }
 
@@ -188,107 +223,107 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
-  Future<void> _updateStock(MenuItem item) async {
-    final stockController = TextEditingController(text: (item.stockQuantity / 1000).toString());
-    final thresholdController = TextEditingController(text: (item.lowStockThreshold / 1000).toString());
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Update Stock: ${item.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: stockController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Current Stock (kg)',
-                suffixText: 'kg',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: thresholdController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Low Stock Alert Threshold (kg)',
-                suffixText: 'kg',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final newStock = (double.tryParse(stockController.text) ?? 0) * 1000;
-                final newThreshold = (double.tryParse(thresholdController.text) ?? 0) * 1000;
-
-                await _apiService.updateMenuItem(
-                  id: item.id,
-                  updates: {
-                    'stockQuantity': newStock,
-                    'lowStockThreshold': newThreshold,
-                  },
-                );
-                
-                if (mounted) Navigator.pop(context);
-                _loadMenuItems();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
+  Future<void> _loadPaymentConfig() async {
+    setState(() => _isLoadingSettings = true);
+    try {
+      final config = await _apiService.fetchPaymentConfig();
+      if (config.isNotEmpty) {
+        _paymentNameController.text = config['upiName'] ?? '';
+        _paymentImageUrlController.text = config['qrCodeUrl'] ?? '';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load settings: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingSettings = false);
+    }
   }
 
-  Future<void> _deleteMenuItem(String id) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Item'),
-        content: const Text('Are you sure you want to delete this item?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true && mounted) {
-      try {
-        await _apiService.deleteMenuItem(id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Menu item deleted!')),
-          );
-        }
-        await _loadMenuItems();
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
+  Future<void> _pickPaymentImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _paymentImageBytes = bytes;
+          _paymentImageName = pickedFile.name;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
       }
     }
   }
+
+  Future<void> _savePaymentSettings() async {
+    if (_paymentNameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter Payee Name')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      String? imageUrl = _paymentImageUrlController.text;
+
+      // Upload image if selected
+      if (_paymentImageBytes != null && _paymentImageName != null) {
+        setState(() => _isUploadingImage = true);
+        try {
+          imageUrl = await _apiService.uploadImage(
+            imageBytes: _paymentImageBytes!,
+            filename: _paymentImageName!,
+          );
+        } catch (e) {
+          throw Exception('Image upload failed: $e');
+        } finally {
+          if (mounted) setState(() => _isUploadingImage = false);
+        }
+      }
+
+      await _apiService.updatePaymentConfig({
+        'upiName': _paymentNameController.text,
+        'qrCodeUrl': imageUrl ?? '',
+      });
+      
+      // Update controller with new URL if uploaded
+      if (imageUrl != null) {
+        _paymentImageUrlController.text = imageUrl;
+        setState(() {
+          _paymentImageBytes = null;
+          _paymentImageName = null;
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Settings saved successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  // ... (existing helper methods like _loadMenuItems)
 
   @override
   Widget build(BuildContext context) {
@@ -320,19 +355,288 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             child: Row(
               children: [
-                _buildTabButton('Add Item', 0),
-                _buildTabButton('Manage Inventory', 1),
+                _buildTabButton('Dashboard', 0),
+                _buildTabButton('Add Item', 1),
+                _buildTabButton('Inventory', 2), // Shortened title
+                _buildTabButton('Settings', 3), // Settings Tab
               ],
             ),
           ),
           Expanded(
-            child: _tabIndex == 0 ? _buildAddTab() : _buildManageTab(),
+            child: _buildBody(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    switch (_tabIndex) {
+      case 0:
+        return _buildDashboardTab();
+      case 1:
+        return _buildAddTab();
+      case 2:
+        return _buildManageTab();
+      case 3:
+        return _buildSettingsTab();
+      default:
+        return _buildDashboardTab();
+    }
+  }
+  
+  // ... (existing _buildTabButton, _buildAddTab, _buildManageTab)
+
+  Widget _buildSettingsTab() {
+    if (_isLoadingSettings) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Payment Configuration', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text('Configure UPI QR Code and Payee Name for the billing screen.', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 24),
+
+          TextField(
+            controller: _paymentNameController,
+            decoration: const InputDecoration(
+              labelText: 'Payee Name / UPI ID',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person),
+              hintText: 'e.g. Shivam Caterers',
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          const Text('QR Code Image', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                if (_paymentImageBytes != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(_paymentImageBytes!, height: 200, fit: BoxFit.contain),
+                  )
+                else if (_paymentImageUrlController.text.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      ApiService.baseUrl.replaceAll('/api/v1', '') + _paymentImageUrlController.text,
+                      height: 200,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, size: 100, color: Colors.grey),
+                    ),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Icon(Icons.qr_code_2, size: 80, color: Colors.grey),
+                  ),
+                
+                const SizedBox(height: 16),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _pickPaymentImage,
+                      icon: const Icon(Icons.upload),
+                      label: const Text('Upload New Image'),
+                    ),
+                    if (_paymentImageBytes != null) ...[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _paymentImageBytes = null;
+                            _paymentImageName = null;
+                          });
+                        },
+                        child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isSubmitting ? null : _savePaymentSettings,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.save),
+              label: Text(_isSubmitting ? 'Saving...' : 'Save Configuration'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
   
+  Widget _buildDashboardTab() {
+    if (_isLoadingDashboard) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final totalRevenue = (_salesSummary['totalRevenue'] as num?)?.toDouble() ?? 0.0;
+    final totalBills = _salesSummary['totalBills'] as int? ?? 0;
+    final avgOrder = (_salesSummary['averageOrderValue'] as num?)?.toDouble() ?? 0.0;
+
+    return RefreshIndicator(
+      onRefresh: _loadDashboardData,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Business Overview',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            
+            // Revenue Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Total Revenue',
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '₹${totalRevenue.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Total Orders',
+                    totalBills.toString(),
+                    Icons.receipt_long,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    'Avg. Order',
+                    '₹${avgOrder.toStringAsFixed(0)}',
+                    Icons.analytics,
+                    Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTabButton(String title, int index) {
     final bool isSelected = _tabIndex == index;
     return Expanded(
@@ -554,10 +858,13 @@ class _AdminScreenState extends State<AdminScreen> {
             child: Card(
               elevation: 0,
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              color: Colors.white,
+              color: isLowStock ? AppColors.error.withOpacity(0.05) : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
+                side: BorderSide(
+                  color: isLowStock ? AppColors.error : Colors.grey.shade200,
+                  width: isLowStock ? 2 : 1,
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
@@ -688,5 +995,106 @@ class _AdminScreenState extends State<AdminScreen> {
         );
       },
     );
+  }
+  Future<void> _updateStock(MenuItem item) async {
+    final stockController = TextEditingController(text: (item.stockQuantity / 1000).toString());
+    final thresholdController = TextEditingController(text: (item.lowStockThreshold / 1000).toString());
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Update Stock: ${item.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: stockController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Current Stock (kg)',
+                suffixText: 'kg',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: thresholdController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Low Stock Alert Threshold (kg)',
+                suffixText: 'kg',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final newStock = (double.tryParse(stockController.text) ?? 0) * 1000;
+                final newThreshold = (double.tryParse(thresholdController.text) ?? 0) * 1000;
+
+                await _apiService.updateMenuItem(
+                  id: item.id,
+                  updates: {
+                    'stockQuantity': newStock,
+                    'lowStockThreshold': newThreshold,
+                  },
+                );
+                
+                if (mounted) Navigator.pop(context);
+                _loadMenuItems();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteMenuItem(String id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Item'),
+        content: const Text('Are you sure you want to delete this item?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await _apiService.deleteMenuItem(id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Menu item deleted!')),
+          );
+        }
+        await _loadMenuItems();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      }
+    }
   }
 }
