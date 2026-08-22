@@ -51,20 +51,22 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // ... existing build method ...
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: const Border(
+          top: BorderSide(color: AppColors.border, width: 1.5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.4),
+            offset: const Offset(0, -6),
+            blurRadius: 16,
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -77,9 +79,9 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
                   child: TextField(
                     decoration: InputDecoration(
                       labelText: 'Discount %',
-                      prefixIcon: const Icon(Icons.percent, size: 18),
+                      prefixIcon: const Icon(Icons.percent, size: 16),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       isDense: true,
                     ),
                     keyboardType: TextInputType.number,
@@ -96,9 +98,9 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
                   child: TextField(
                     decoration: InputDecoration(
                       labelText: 'Order Notes',
-                      prefixIcon: const Icon(Icons.note, size: 18),
+                      prefixIcon: const Icon(Icons.note_alt_outlined, size: 16),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       isDense: true,
                     ),
                     onChanged: (value) => notes = value,
@@ -106,57 +108,73 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Calculation Rows
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Subtotal', style: TextStyle(color: Colors.grey)),
-                Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Subtotal', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 15)),
               ],
             ),
             if (discountPercent > 0) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Discount ($discountPercent%)', style: const TextStyle(color: AppColors.error)),
-                  Text('-₹${discountAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                  Text('Discount ($discountPercent%)', style: const TextStyle(color: AppColors.error, fontSize: 14)),
+                  Text('-₹${discountAmount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 15)),
                 ],
               ),
             ],
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total to Pay', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('₹${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary)),
-              ],
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(color: AppColors.divider),
             ),
-            const SizedBox(height: 24),
+            
+            // Total highlight container
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total to Pay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Text(
+                    '₹${total.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
 
             // Payment Methods
             Row(
               children: [
                 _buildPaymentButton(
-                  icon: Icons.money,
+                  icon: Icons.payments_outlined,
                   label: 'CASH',
-                  color: Colors.green,
+                  color: AppColors.success,
                   onTap: () => _processPayment('cash'),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 _buildPaymentButton(
                   icon: Icons.qr_code_scanner,
                   label: 'UPI',
-                  color: Colors.blue,
+                  color: const Color(0xFF5C6BC0),
                   onTap: () => _processPayment('upi'),
                 ),
-                 const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 _buildPaymentButton(
-                  icon: Icons.credit_card,
+                  icon: Icons.credit_card_outlined,
                   label: 'CARD',
-                  color: Colors.deepPurple,
+                  color: const Color(0xFF7E57C2),
                   onTap: () => _processPayment('card'),
                 ),
               ],
@@ -173,25 +191,35 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final bool disabled = widget.cartItems.isEmpty;
     return Expanded(
       child: Material(
-        color: widget.cartItems.isEmpty ? Colors.grey[300] : color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: disabled ? AppColors.surfaceVariant : color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          onTap: widget.cartItems.isEmpty ? null : onTap,
-          borderRadius: BorderRadius.circular(12),
+          onTap: disabled ? null : onTap,
+          borderRadius: BorderRadius.circular(14),
+          splashColor: color.withOpacity(0.3),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: disabled ? AppColors.border : color.withOpacity(0.4),
+                width: 1.5,
+              ),
+            ),
             child: Column(
               children: [
-                Icon(icon, color: widget.cartItems.isEmpty ? Colors.grey : color),
+                Icon(icon, color: disabled ? AppColors.textTertiary : color, size: 22),
                 const SizedBox(height: 4),
                 Text(
                   label,
                   style: TextStyle(
-                    color: widget.cartItems.isEmpty ? Colors.grey : color,
+                    color: disabled ? AppColors.textTertiary : color,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 13,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ],
@@ -207,15 +235,21 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Center(child: Text('Scan QR to Pay')),
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          title: const Center(
+            child: Text('Scan QR to Pay', style: TextStyle(color: AppColors.textPrimary)),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_upiName != null && _upiName!.isNotEmpty) ...[
                 Text(
                   _upiName!,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -227,15 +261,15 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
+                      color: AppColors.primary.withOpacity(0.15),
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: _qrCodeUrl != null && _qrCodeUrl!.isNotEmpty
                   ? Image.network(
-                      ApiService.baseUrl.replaceAll('/api/v1', '') + _qrCodeUrl!,
+                      ApiService.formatImageUrl(_qrCodeUrl!),
                       width: 200,
                       height: 200,
                       fit: BoxFit.contain,
@@ -246,7 +280,7 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
                   : _buildFallbackQR(),
               ),
               const SizedBox(height: 24),
-              const Text('Total Amount', style: TextStyle(color: Colors.grey)),
+              const Text('Total Amount', style: TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 4),
               Text(
                 '₹${total.toStringAsFixed(2)}',
@@ -257,7 +291,7 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -266,6 +300,7 @@ class _BillSummaryWidgetState extends State<BillSummaryWidget> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

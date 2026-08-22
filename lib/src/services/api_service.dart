@@ -8,8 +8,9 @@ import 'package:undhiyuapp/src/models/bill_history_model.dart';
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   
-  // Change this to your backend URL
-  static const String baseUrl = 'http://192.168.29.108:5000/api/v1';
+  // Backend API URL
+  // Use your computer's local IP address so your physical phone can connect
+  static const String baseUrl = 'http://10.88.20.6:5000/api/v1';
   
   // For production, use:
   // static const String baseUrl = 'https://your-production-url.com/api/v1';
@@ -19,6 +20,17 @@ class ApiService {
   }
 
   ApiService._internal();
+
+  /// Helper to get full image URL whether it's an internet URL or uploaded asset
+  static String formatImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return '';
+    final trimmed = url.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final serverUrl = baseUrl.replaceAll('/api/v1', '');
+    return trimmed.startsWith('/') ? '$serverUrl$trimmed' : '$serverUrl/$trimmed';
+  }
 
   // ==================== MENU ENDPOINTS ====================
 

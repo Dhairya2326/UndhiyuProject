@@ -51,31 +51,6 @@ router.get('/all', (req, res) => {
 });
 
 /**
- * GET /api/billing/:id
- * Get bill by ID
- */
-router.get('/:id', (req, res) => {
-  try {
-    const bill = billingService.getBillById(req.params.id);
-    if (!bill) {
-      return res.status(404).json({
-        success: false,
-        error: 'Bill not found',
-      });
-    }
-    res.json({
-      success: true,
-      data: bill.toJSON(),
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-/**
  * GET /api/billing/range/:startDate/:endDate
  * Get bills by date range
  */
@@ -143,6 +118,31 @@ router.get('/summary/top-items', (req, res) => {
     res.json({
       success: true,
       data: topItems,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/billing/:id
+ * Get bill by ID
+ */
+router.get('/:id', (req, res) => {
+  try {
+    const bill = billingService.getBillById(req.params.id);
+    if (!bill) {
+      return res.status(404).json({
+        success: false,
+        error: 'Bill not found',
+      });
+    }
+    res.json({
+      success: true,
+      data: bill.toJSON(),
     });
   } catch (error) {
     res.status(500).json({

@@ -18,6 +18,11 @@ const config = {
     host: 'localhost',
     nodeEnv: 'test',
   },
+  'memory-only': {
+    port: process.env.PORT || 5000,
+    host: '0.0.0.0',
+    nodeEnv: 'development',
+  },
 };
 
 const env = process.env.NODE_ENV || 'development';

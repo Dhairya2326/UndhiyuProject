@@ -348,22 +348,32 @@ class _AdminScreenState extends State<AdminScreen> {
         children: [
           // Tabs
           Container(
-            margin: const EdgeInsets.all(16),
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
                 _buildTabButton('Dashboard', 0),
                 _buildTabButton('Add Item', 1),
-                _buildTabButton('Inventory', 2), // Shortened title
-                _buildTabButton('Settings', 3), // Settings Tab
+                _buildTabButton('Inventory', 2),
+                _buildTabButton('Settings', 3),
               ],
             ),
           ),
           Expanded(
-            child: _buildBody(),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: KeyedSubtree(
+                key: ValueKey(_tabIndex),
+                child: _buildBody(),
+              ),
+            ),
           ),
         ],
       ),
@@ -389,93 +399,166 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildSettingsTab() {
     if (_isLoadingSettings) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
+
+    final hasPreviewImage = _paymentImageBytes != null || _paymentImageUrlController.text.trim().isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Payment Configuration', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Configure UPI QR Code and Payee Name for the billing screen.', style: TextStyle(color: Colors.grey)),
+          const Text('Payment & QR Configuration', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          const Text('Configure the UPI QR Code and Payee Name displayed on the customer billing screen.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           const SizedBox(height: 24),
 
           TextField(
             controller: _paymentNameController,
             decoration: const InputDecoration(
-              labelText: 'Payee Name / UPI ID',
+              labelText: 'Payee Name / UPI ID *',
               border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.person),
-              hintText: 'e.g. Shivam Caterers',
+              prefixIcon: Icon(Icons.person, color: AppColors.primary),
+              hintText: 'e.g. Shivam Caterers / username@upi',
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          const Text('QR Code Image', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          
+          // QR Image Configuration Card
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_paymentImageBytes != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(_paymentImageBytes!, height: 200, fit: BoxFit.contain),
-                  )
-                else if (_paymentImageUrlController.text.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      ApiService.baseUrl.replaceAll('/api/v1', '') + _paymentImageUrlController.text,
-                      height: 200,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, size: 100, color: Colors.grey),
-                    ),
-                  )
-                else
-                  const Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Icon(Icons.qr_code_2, size: 80, color: Colors.grey),
-                  ),
-                
-                const SizedBox(height: 16),
-                
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: _pickPaymentImage,
-                      icon: const Icon(Icons.upload),
-                      label: const Text('Upload New Image'),
-                    ),
-                    if (_paymentImageBytes != null) ...[
-                      const SizedBox(width: 8),
-                      TextButton(
+                    const Icon(Icons.qr_code_2, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    const Text('UPI QR Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
+                    const Spacer(),
+                    if (hasPreviewImage)
+                      TextButton.icon(
                         onPressed: () {
                           setState(() {
                             _paymentImageBytes = null;
                             _paymentImageName = null;
+                            _paymentImageUrlController.clear();
                           });
                         },
-                        child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Clear'),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.error),
                       ),
-                    ],
                   ],
+                ),
+                const SizedBox(height: 14),
+
+                // QR Preview Area
+                Center(
+                  child: Container(
+                    width: 220,
+                    height: 220,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: _paymentImageBytes != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.memory(_paymentImageBytes!, fit: BoxFit.contain),
+                          )
+                        : (_paymentImageUrlController.text.trim().isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  ApiService.formatImageUrl(_paymentImageUrlController.text.trim()),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) => Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.broken_image_rounded, size: 48, color: Colors.grey),
+                                      SizedBox(height: 4),
+                                      Text('Invalid Image URL', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(Icons.qr_code_2_rounded, size: 80, color: Colors.black54),
+                                  SizedBox(height: 6),
+                                  Text('No QR Code Set', style: TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              )),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Option 1: Internet Image URL
+                TextField(
+                  controller: _paymentImageUrlController,
+                  decoration: InputDecoration(
+                    labelText: 'QR Code Image URL (Internet)',
+                    hintText: 'https://example.com/qr-code.png',
+                    prefixIcon: const Icon(Icons.link, color: AppColors.primary),
+                    suffixIcon: _paymentImageUrlController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () => setState(() => _paymentImageUrlController.clear()),
+                          )
+                        : null,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+
+                // Option 2: Upload from Device
+                Row(
+                  children: [
+                    const Expanded(child: Divider(color: AppColors.divider)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('OR', style: TextStyle(color: AppColors.textTertiary, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    const Expanded(child: Divider(color: AppColors.divider)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _pickPaymentImage,
+                    icon: const Icon(Icons.upload_file),
+                    label: Text(_paymentImageName != null ? 'Change File (${_paymentImageName!})' : 'Upload QR Image from Device'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           
           SizedBox(
             width: double.infinity,
@@ -485,14 +568,15 @@ class _AdminScreenState extends State<AdminScreen> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
                     )
-                  : const Icon(Icons.save),
+                  : const Icon(Icons.save_rounded),
               label: Text(_isSubmitting ? 'Saving...' : 'Save Configuration'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -503,7 +587,7 @@ class _AdminScreenState extends State<AdminScreen> {
   
   Widget _buildDashboardTab() {
     if (_isLoadingDashboard) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     final totalRevenue = (_salesSummary['totalRevenue'] as num?)?.toDouble() ?? 0.0;
@@ -518,73 +602,82 @@ class _AdminScreenState extends State<AdminScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Business Overview',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            FadeInSlide(
+              delay: 0,
+              child: const Text(
+                'Business Overview',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
             ),
             const SizedBox(height: 16),
             
             // Revenue Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+            FadeInSlide(
+              delay: 0.1,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Total Revenue',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹${totalRevenue.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total Revenue',
+                      style: TextStyle(color: Colors.black54, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '₹${totalRevenue.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 16),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    'Total Orders',
-                    totalBills.toString(),
-                    Icons.receipt_long,
-                    Colors.blue,
+            FadeInSlide(
+              delay: 0.2,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      'Total Orders',
+                      totalBills.toString(),
+                      Icons.receipt_long,
+                      const Color(0xFF5C6BC0),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    'Avg. Order',
-                    '₹${avgOrder.toStringAsFixed(0)}',
-                    Icons.analytics,
-                    Colors.orange,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Avg. Order',
+                      '₹${avgOrder.toStringAsFixed(0)}',
+                      Icons.analytics,
+                      AppColors.primaryDark,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -596,12 +689,13 @@ class _AdminScreenState extends State<AdminScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
@@ -612,7 +706,7 @@ class _AdminScreenState extends State<AdminScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -623,12 +717,13 @@ class _AdminScreenState extends State<AdminScreen> {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
             ),
           ),
           Text(
             title,
-            style: TextStyle(
-              color: Colors.grey[600],
+            style: const TextStyle(
+              color: AppColors.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -673,21 +768,26 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Widget _buildAddTab() {
+    final hasImage = _selectedImageBytes != null || _imageUrlController.text.trim().isNotEmpty;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Add New Menu Item', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
+          const Text('Add New Menu Item', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          const Text('Create a new dish with internet image URL, description, and pricing.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          const SizedBox(height: 20),
           TextField(
             controller: _nameController,
             decoration: const InputDecoration(
               labelText: 'Item Name *',
               border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.restaurant_menu, color: AppColors.primary),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           DropdownButtonFormField<String>(
             initialValue: _selectedCategory,
             items: _categories
@@ -702,35 +802,39 @@ class _AdminScreenState extends State<AdminScreen> {
             decoration: const InputDecoration(
               labelText: 'Category',
               border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.category_outlined, color: AppColors.primary),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           TextField(
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
               labelText: 'Price per gram (₹) *',
               border: OutlineInputBorder(),
-              hintText: 'e.g., 0.15',
+              prefixIcon: Icon(Icons.currency_rupee, color: AppColors.primary),
+              hintText: 'e.g., 0.35 (which equals ₹350/kg)',
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           TextField(
             controller: _descriptionController,
             maxLines: 2,
             decoration: const InputDecoration(
               labelText: 'Description (Optional)',
               border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.description_outlined, color: AppColors.primary),
             ),
           ),
-          const SizedBox(height: 12),
-          // Image picker section
+          const SizedBox(height: 16),
+          
+          // Image Picker / URL Section
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,71 +843,99 @@ class _AdminScreenState extends State<AdminScreen> {
                   children: [
                     const Icon(Icons.image, color: AppColors.primary),
                     const SizedBox(width: 8),
-                    const Text('Item Image', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Item Image', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary)),
                     const Spacer(),
-                    if (_selectedImageBytes != null || _imageUrlController.text.isNotEmpty)
+                    if (hasImage)
                       TextButton.icon(
                         onPressed: _clearSelectedImage,
                         icon: const Icon(Icons.close, size: 16),
-                        label: const Text('Clear'),
+                        label: const Text('Clear Image'),
                         style: TextButton.styleFrom(foregroundColor: AppColors.error),
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                if (_selectedImageBytes != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      _selectedImageBytes!,
-                      height: 120,
+                const SizedBox(height: 14),
+
+                // Live Image Preview
+                if (hasImage)
+                  Center(
+                    child: Container(
+                      height: 160,
                       width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _pickImage,
-                          icon: const Icon(Icons.photo_library),
-                          label: const Text('Choose Image'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.primary),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
                       ),
-                      const SizedBox(width: 12),
-                      const Text('or', style: TextStyle(color: AppColors.textSecondary)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _imageUrlController,
-                          decoration: const InputDecoration(
-                            labelText: 'Image URL',
-                            border: OutlineInputBorder(),
-                            hintText: 'https://...',
-                            isDense: true,
-                          ),
-                        ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: _selectedImageBytes != null
+                            ? Image.memory(_selectedImageBytes!, fit: BoxFit.cover)
+                            : Image.network(
+                                ApiService.formatImageUrl(_imageUrlController.text.trim()),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey),
+                                    SizedBox(height: 4),
+                                    Text('Unable to load image from URL', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
                       ),
-                    ],
-                  ),
-                if (_selectedImageName != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '📎 $_selectedImageName',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                     ),
                   ),
+
+                // Option 1: Internet Image URL
+                TextField(
+                  controller: _imageUrlController,
+                  decoration: InputDecoration(
+                    labelText: 'Image URL from Internet',
+                    hintText: 'https://images.unsplash.com/... or any image link',
+                    prefixIcon: const Icon(Icons.link, color: AppColors.primary),
+                    suffixIcon: _imageUrlController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () => setState(() => _imageUrlController.clear()),
+                          )
+                        : null,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+
+                // Option 2: Upload Image File
+                Row(
+                  children: [
+                    const Expanded(child: Divider(color: AppColors.divider)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('OR', style: TextStyle(color: AppColors.textTertiary, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                    const Expanded(child: Divider(color: AppColors.divider)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _pickImage,
+                    icon: const Icon(Icons.photo_library),
+                    label: Text(_selectedImageName != null ? 'Selected: ${_selectedImageName!}' : 'Upload Image from Device'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -812,13 +944,15 @@ class _AdminScreenState extends State<AdminScreen> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
                     )
-                  : const Icon(Icons.add),
-              label: Text(_isSubmitting ? 'Adding...' : 'Add Item'),
+                  : const Icon(Icons.add_circle_outline),
+              label: Text(_isSubmitting ? 'Adding...' : 'Add Menu Item'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.success,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -829,23 +963,30 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildManageTab() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
 
     if (_error != null) {
       return Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            Text('Error: $_error'),
-            ElevatedButton(onPressed: _loadMenuItems, child: const Text('Retry')),
+            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+            const SizedBox(height: 12),
+            Text('Error: $_error', style: const TextStyle(color: AppColors.textSecondary)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadMenuItems,
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.black),
+              child: const Text('Retry'),
+            ),
           ],
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
       itemCount: _menuItems.length,
       itemBuilder: (context, index) {
         final item = _menuItems[index];
@@ -853,85 +994,93 @@ class _AdminScreenState extends State<AdminScreen> {
         final isLowStock = item.stockQuantity < item.lowStockThreshold;
 
         return FadeInSlide(
-          delay: index * 0.05, // Staggered animation
+          delay: (index % 10) * 0.04,
           child: ScaleButton(
             child: Card(
-              elevation: 0,
-              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              color: isLowStock ? AppColors.error.withOpacity(0.05) : Colors.white,
+              elevation: 2,
+              margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+              color: AppColors.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: isLowStock ? AppColors.error : Colors.grey.shade200,
-                  width: isLowStock ? 2 : 1,
+                  color: isLowStock ? AppColors.warning.withOpacity(0.6) : AppColors.border,
+                  width: isLowStock ? 1.5 : 1,
                 ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Row(
                   children: [
-                    // Image/Icon Container
+                    // Image / Icon Container
                     Container(
-                      width: 60,
-                      height: 60,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryLight.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        image: item.imageUrl.isNotEmpty
-                            ? DecorationImage(
-                                image: NetworkImage(item.imageUrl),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
+                        color: AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.25)),
                       ),
-                      child: item.imageUrl.isEmpty
-                          ? Center(
-                              child: Text(item.icon,
-                                  style: const TextStyle(fontSize: 28)))
-                          : null,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: item.imageUrl.isNotEmpty
+                            ? Image.network(
+                                ApiService.formatImageUrl(item.imageUrl),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Center(
+                                  child: Text(item.icon, style: const TextStyle(fontSize: 28)),
+                                ),
+                              )
+                            : Center(
+                                child: Text(item.icon, style: const TextStyle(fontSize: 28)),
+                              ),
+                      ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     
                     // Details
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(
+                            item.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           const SizedBox(height: 4),
+                          Text(
+                            item.category,
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                          const SizedBox(height: 6),
                           // Stock Pill
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: isLowStock
-                                  ? AppColors.error.withOpacity(0.1)
-                                  : AppColors.success.withOpacity(0.1),
+                                  ? AppColors.warning.withOpacity(0.15)
+                                  : AppColors.success.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isLowStock ? AppColors.warning.withOpacity(0.4) : AppColors.success.withOpacity(0.4),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isLowStock
-                                      ? Icons.warning_amber_rounded
-                                      : Icons.check_circle_outline,
-                                  size: 14,
-                                  color: isLowStock
-                                      ? AppColors.error
-                                      : AppColors.success,
+                                  isLowStock ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                                  size: 13,
+                                  color: isLowStock ? AppColors.warning : AppColors.success,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${stockKg.toStringAsFixed(1)} kg',
                                   style: TextStyle(
-                                    color: isLowStock
-                                        ? AppColors.error
-                                        : AppColors.success,
+                                    color: isLowStock ? AppColors.warning : AppColors.success,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                    fontSize: 11,
                                   ),
                                 ),
                               ],
@@ -946,27 +1095,28 @@ class _AdminScreenState extends State<AdminScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '₹${item.price.toStringAsFixed(3)}/g',
-                          style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500),
+                          '₹${(item.price * 1000).toStringAsFixed(0)}/kg',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             InkWell(
-                              onTap: () => _updateStock(item),
+                              onTap: () => _editMenuItem(item),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
+                                  color: AppColors.primary.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                                 ),
-                                child: const Icon(Icons.edit_note,
-                                    color: AppColors.primary, size: 20),
+                                child: const Icon(Icons.edit, color: AppColors.primary, size: 18),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -974,13 +1124,13 @@ class _AdminScreenState extends State<AdminScreen> {
                               onTap: () => _deleteMenuItem(item.id),
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppColors.error.withOpacity(0.1),
+                                  color: AppColors.error.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
                                 ),
-                                child: const Icon(Icons.delete_outline,
-                                    color: AppColors.error, size: 20),
+                                child: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
                               ),
                             ),
                           ],
@@ -996,67 +1146,243 @@ class _AdminScreenState extends State<AdminScreen> {
       },
     );
   }
-  Future<void> _updateStock(MenuItem item) async {
+
+  Future<void> _editMenuItem(MenuItem item) async {
+    final nameController = TextEditingController(text: item.name);
+    final priceController = TextEditingController(text: item.price.toString());
+    final descriptionController = TextEditingController(text: item.description);
+    final imageUrlController = TextEditingController(text: item.imageUrl);
     final stockController = TextEditingController(text: (item.stockQuantity / 1000).toString());
     final thresholdController = TextEditingController(text: (item.lowStockThreshold / 1000).toString());
+    String selectedCat = item.category;
+    Uint8List? editImageBytes;
+    String? editImageName;
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Update Stock: ${item.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: stockController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Current Stock (kg)',
-                suffixText: 'kg',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: thresholdController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Low Stock Alert Threshold (kg)',
-                suffixText: 'kg',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final newStock = (double.tryParse(stockController.text) ?? 0) * 1000;
-                final newThreshold = (double.tryParse(thresholdController.text) ?? 0) * 1000;
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final hasImg = editImageBytes != null || imageUrlController.text.trim().isNotEmpty;
 
-                await _apiService.updateMenuItem(
-                  id: item.id,
-                  updates: {
-                    'stockQuantity': newStock,
-                    'lowStockThreshold': newThreshold,
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.edit_note, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Edit: ${item.name}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 18),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Item Name
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Item Name *', isDense: true),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Category Dropdown
+                      DropdownButtonFormField<String>(
+                        initialValue: _categories.contains(selectedCat) ? selectedCat : _categories.first,
+                        items: _categories
+                            .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                            .toList(),
+                        onChanged: (val) => setDialogState(() => selectedCat = val ?? selectedCat),
+                        decoration: const InputDecoration(labelText: 'Category', isDense: true),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Price per gram
+                      TextField(
+                        controller: priceController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Price per gram (₹) *',
+                          hintText: 'e.g. 0.35',
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Description
+                      TextField(
+                        controller: descriptionController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(labelText: 'Description', isDense: true),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Image Section Header
+                      const Text('Dish Image', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 14)),
+                      const SizedBox(height: 8),
+
+                      if (hasImg)
+                        Container(
+                          height: 120,
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: editImageBytes != null
+                                ? Image.memory(editImageBytes!, fit: BoxFit.cover)
+                                : Image.network(
+                                    ApiService.formatImageUrl(imageUrlController.text.trim()),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const Center(
+                                      child: Icon(Icons.broken_image, color: Colors.grey),
+                                    ),
+                                  ),
+                          ),
+                        ),
+
+                      // Image URL input
+                      TextField(
+                        controller: imageUrlController,
+                        decoration: InputDecoration(
+                          labelText: 'Image URL from Internet',
+                          hintText: 'https://...',
+                          prefixIcon: const Icon(Icons.link, size: 18),
+                          suffixIcon: imageUrlController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 16),
+                                  onPressed: () => setDialogState(() => imageUrlController.clear()),
+                                )
+                              : null,
+                          isDense: true,
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Upload Device Image button
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          try {
+                            final XFile? pickedFile = await _imagePicker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 1024,
+                              maxHeight: 1024,
+                              imageQuality: 85,
+                            );
+                            if (pickedFile != null) {
+                              final bytes = await pickedFile.readAsBytes();
+                              setDialogState(() {
+                                editImageBytes = bytes;
+                                editImageName = pickedFile.name;
+                              });
+                            }
+                          } catch (e) {
+                            debugPrint('Error picking edit image: $e');
+                          }
+                        },
+                        icon: const Icon(Icons.photo_library, size: 16),
+                        label: Text(editImageName != null ? 'Selected: $editImageName' : 'Upload from Device', style: const TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 38),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Stock Inputs
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: stockController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Stock (kg)', isDense: true),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: thresholdController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Low Alert (kg)', isDense: true),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      String? finalImageUrl = imageUrlController.text.trim();
+
+                      if (editImageBytes != null && editImageName != null) {
+                        final uploadedUrl = await _apiService.uploadImage(
+                          imageBytes: editImageBytes!,
+                          filename: editImageName!,
+                        );
+                        finalImageUrl = uploadedUrl;
+                      }
+
+                      final newStock = (double.tryParse(stockController.text) ?? 0) * 1000;
+                      final newThreshold = (double.tryParse(thresholdController.text) ?? 0) * 1000;
+                      final newPrice = double.tryParse(priceController.text) ?? item.price;
+
+                      await _apiService.updateMenuItem(
+                        id: item.id,
+                        updates: {
+                          'name': nameController.text.trim(),
+                          'category': selectedCat,
+                          'price': newPrice,
+                          'description': descriptionController.text.trim(),
+                          'imageUrl': finalImageUrl,
+                          'stockQuantity': newStock,
+                          'lowStockThreshold': newThreshold,
+                        },
+                      );
+                      
+                      if (context.mounted) Navigator.pop(context);
+                      _loadMenuItems();
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+                      }
+                    }
                   },
-                );
-                
-                if (mounted) Navigator.pop(context);
-                _loadMenuItems();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                  ),
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1064,16 +1390,18 @@ class _AdminScreenState extends State<AdminScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
         title: const Text('Delete Item'),
         content: const Text('Are you sure you want to delete this item?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

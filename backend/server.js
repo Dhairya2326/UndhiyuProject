@@ -23,8 +23,9 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(corsMiddleware);
 
-// Serve uploaded images as static files
+// Serve uploaded images and static public app files as static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Request logging middleware (after body-parser so req.body is available)
 app.use((req, res, next) => {
@@ -85,18 +86,17 @@ const startServer = async () => {
       await connectDB();
     }
 
-    const PORT = serverConfig.port;
-    const HOST = serverConfig.host;
+    const PORT = (serverConfig && serverConfig.port) || process.env.PORT || 5000;
 
-    app.listen(PORT, HOST, () => {
-      logger.info(`Undhiyu Backend Server running on http://${HOST}:${PORT}`);
-      logger.info(`Environment: ${serverConfig.nodeEnv}`);
+    app.listen(PORT, () => {
+      logger.info(`Undhiyu Backend Server running on http://localhost:${PORT}`);
+      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`Database: ${process.env.NODE_ENV === 'memory-only' ? 'In-Memory' : 'MongoDB'}`);
-      logger.info(`Health check: http://${HOST}:${PORT}/health`);
+      logger.info(`Health check: http://localhost:${PORT}/health`);
       logger.info('');
       logger.info('Available API versions:');
       logger.info('  v0 (In-Memory): /api/menu, /api/billing');
-      logger.info('  v1 (MongoDB): /api/v1/menu, /api/v1/billing');
+      logger.info('  v1 (MongoDB / Memory Fallback): /api/v1/menu, /api/v1/billing');
     });
   } catch (error) {
     logger.error('Failed to start server:', error.message);

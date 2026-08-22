@@ -223,55 +223,104 @@ class _BillingScreenState extends State<BillingScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Shivam Caterers',
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.restaurant_menu_rounded, color: AppColors.primary, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Shivam Caterers',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
         backgroundColor: AppColors.surface,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
                _refreshCurrentTab();
                ScaffoldMessenger.of(context).showSnackBar(
-                 const SnackBar(content: Text('Refreshing data...'), duration: Duration(milliseconds: 500)),
+                 const SnackBar(
+                   content: Text('Refreshing data...'),
+                   duration: Duration(milliseconds: 600),
+                 ),
                );
             },
             tooltip: 'Refresh Data',
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 4,
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-          tabs: [
-            const Tab(text: 'Menu', icon: Icon(Icons.restaurant_menu)),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   const Icon(Icons.shopping_cart),
-                   const SizedBox(width: 8),
-                   const Text('Cart'),
-                   if (_cartItems.isNotEmpty) ...[
-                     const SizedBox(width: 8),
-                     Badge(
-                       label: Text('${_cartItems.length}'),
-                       backgroundColor: AppColors.primary,
-                       textColor: Colors.black,
-                     ),
-                   ],
-                ],
-              ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
             ),
-            const Tab(text: 'History', icon: Icon(Icons.history)),
-          ],
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.primary,
+              indicatorWeight: 3,
+              indicatorSize: TabBarIndicatorSize.label,
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              tabs: [
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.restaurant_menu, size: 18),
+                      SizedBox(width: 6),
+                      Text('Menu'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                       const Icon(Icons.shopping_cart, size: 18),
+                       const SizedBox(width: 6),
+                       const Text('Cart'),
+                       if (_cartItems.isNotEmpty) ...[
+                         const SizedBox(width: 6),
+                         Container(
+                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                           decoration: BoxDecoration(
+                             color: AppColors.primary,
+                             borderRadius: BorderRadius.circular(10),
+                           ),
+                           child: Text(
+                             '${_cartItems.length}',
+                             style: const TextStyle(
+                               color: Colors.black,
+                               fontWeight: FontWeight.bold,
+                               fontSize: 11,
+                             ),
+                           ),
+                         ),
+                       ],
+                    ],
+                  ),
+                ),
+                const Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history, size: 18),
+                      SizedBox(width: 6),
+                      Text('History'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       body: TabBarView(

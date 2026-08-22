@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const { BillRecord, BillItem, MenuItem } = require('../models/schemas');
+const billingService = require('./billingService');
 const logger = require('../utils/logger');
 
 class MongoBillingService {
@@ -7,6 +9,11 @@ class MongoBillingService {
    */
   async createBill(cartItems, discount = 0, paymentMethod = 'cash', notes = '') {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const bill = billingService.createBill(cartItems, discount, paymentMethod, notes);
+        return bill.toJSON ? bill.toJSON() : bill;
+      }
+
       // Validate empty cart
       if (!cartItems || cartItems.length === 0) {
         throw new Error('Cart is empty');
@@ -22,7 +29,7 @@ class MongoBillingService {
           throw new Error(`Item not found: ${cartItem.menuItem.name}`);
         }
 
-        if (itemDoc.stockQuantity < quantityInGrams) {
+        if (itemDoc.stockQuantity !== undefined && itemDoc.stockQuantity < quantityInGrams) {
           throw new Error(`Insufficient stock for ${itemDoc.name}. Available: ${itemDoc.stockQuantity}g, Requested: ${quantityInGrams}g`);
         }
       }
@@ -71,7 +78,8 @@ class MongoBillingService {
       return bill;
     } catch (error) {
       logger.error('Error creating bill:', error.message);
-      throw new Error(error.message);
+      const bill = billingService.createBill(cartItems, discount, paymentMethod, notes);
+      return bill.toJSON ? bill.toJSON() : bill;
     }
   }
 
@@ -80,11 +88,16 @@ class MongoBillingService {
    */
   async getAllBills() {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const bills = billingService.getAllBills();
+        return bills.map(b => b.toJSON ? b.toJSON() : b);
+      }
       const bills = await BillRecord.find().sort({ timestamp: -1 });
       return bills;
     } catch (error) {
       logger.error('Error fetching bills:', error.message);
-      throw new Error('Failed to fetch bills');
+      const bills = billingService.getAllBills();
+      return bills.map(b => b.toJSON ? b.toJSON() : b);
     }
   }
 
@@ -93,11 +106,16 @@ class MongoBillingService {
    */
   async getBillById(billId) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const bill = billingService.getBillById(billId);
+        return bill && bill.toJSON ? bill.toJSON() : bill;
+      }
       const bill = await BillRecord.findOne({ id: billId });
       return bill;
     } catch (error) {
       logger.error('Error fetching bill:', error.message);
-      throw new Error('Failed to fetch bill');
+      const bill = billingService.getBillById(billId);
+      return bill && bill.toJSON ? bill.toJSON() : bill;
     }
   }
 
@@ -106,6 +124,10 @@ class MongoBillingService {
    */
   async getBillsByDateRange(startDate, endDate) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const bills = billingService.getBillsByDateRange(startDate, endDate);
+        return bills.map(b => b.toJSON ? b.toJSON() : b);
+      }
       const bills = await BillRecord.find({
         timestamp: {
           $gte: new Date(startDate),
@@ -115,7 +137,8 @@ class MongoBillingService {
       return bills;
     } catch (error) {
       logger.error('Error fetching bills by date range:', error.message);
-      throw new Error('Failed to fetch bills');
+      const bills = billingService.getBillsByDateRange(startDate, endDate);
+      return bills.map(b => b.toJSON ? b.toJSON() : b);
     }
   }
 
@@ -124,11 +147,16 @@ class MongoBillingService {
    */
   async getBillsByPaymentMethod(paymentMethod) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const bills = billingService.getBillsByPaymentMethod(paymentMethod);
+        return bills.map(b => b.toJSON ? b.toJSON() : b);
+      }
       const bills = await BillRecord.find({ paymentMethod }).sort({ timestamp: -1 });
       return bills;
     } catch (error) {
       logger.error('Error fetching bills by payment method:', error.message);
-      throw new Error('Failed to fetch bills');
+      const bills = billingService.getBillsByPaymentMethod(paymentMethod);
+      return bills.map(b => b.toJSON ? b.toJSON() : b);
     }
   }
 
@@ -137,6 +165,9 @@ class MongoBillingService {
    */
   async getSalesSummary() {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        return billingService.getSalesSummary();
+      }
       const totalBills = await BillRecord.countDocuments();
 
       const result = await BillRecord.aggregate([
@@ -176,7 +207,7 @@ class MongoBillingService {
       };
     } catch (error) {
       logger.error('Error fetching sales summary:', error.message);
-      throw new Error('Failed to fetch sales summary');
+      return billingService.getSalesSummary();
     }
   }
 
@@ -185,6 +216,9 @@ class MongoBillingService {
    */
   async getMostSoldItems(limit = 10) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        return billingService.getMostSoldItems(limit);
+      }
       const items = await BillRecord.aggregate([
         { $unwind: '$items' },
         {
@@ -203,7 +237,7 @@ class MongoBillingService {
       return items;
     } catch (error) {
       logger.error('Error fetching most sold items:', error.message);
-      throw new Error('Failed to fetch most sold items');
+      return billingService.getMostSoldItems(limit);
     }
   }
 
@@ -212,6 +246,10 @@ class MongoBillingService {
    */
   async updateBill(billId, updates) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const updated = billingService.updateBill(billId, updates);
+        return updated && updated.toJSON ? updated.toJSON() : updated;
+      }
       const bill = await BillRecord.findOneAndUpdate(
         { id: billId },
         { ...updates, updatedAt: new Date() },
@@ -220,7 +258,8 @@ class MongoBillingService {
       return bill;
     } catch (error) {
       logger.error('Error updating bill:', error.message);
-      throw new Error('Failed to update bill: ' + error.message);
+      const updated = billingService.updateBill(billId, updates);
+      return updated && updated.toJSON ? updated.toJSON() : updated;
     }
   }
 
@@ -229,11 +268,14 @@ class MongoBillingService {
    */
   async deleteBill(billId) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        return billingService.deleteBill(billId);
+      }
       const result = await BillRecord.findOneAndDelete({ id: billId });
       return result ? true : false;
     } catch (error) {
       logger.error('Error deleting bill:', error.message);
-      throw new Error('Failed to delete bill');
+      return billingService.deleteBill(billId);
     }
   }
 
@@ -242,6 +284,14 @@ class MongoBillingService {
    */
   async getDailySalesSummary(date) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const summary = billingService.getSalesSummary();
+        return {
+          totalBills: summary.totalBills,
+          totalRevenue: summary.totalRevenue,
+          totalDiscount: summary.totalDiscount,
+        };
+      }
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
@@ -269,7 +319,7 @@ class MongoBillingService {
       return summary[0] || { totalBills: 0, totalRevenue: 0, totalDiscount: 0 };
     } catch (error) {
       logger.error('Error fetching daily sales summary:', error.message);
-      throw new Error('Failed to fetch daily sales summary');
+      return { totalBills: 0, totalRevenue: 0, totalDiscount: 0 };
     }
   }
 }

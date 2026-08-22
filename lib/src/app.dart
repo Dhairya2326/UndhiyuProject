@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/screens/home_screen.dart';
-import 'package:undhiyuapp/src/constants/app_colors.dart';
 import 'package:undhiyuapp/src/themes/app_theme.dart';
 
 class UndhiyuApp extends StatelessWidget {

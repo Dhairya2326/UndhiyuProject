@@ -25,4 +25,20 @@ class AppColors {
   // Border & Divider
   static const Color border = Color(0xFF3D3D3D); // Subtle border
   static const Color divider = Color(0xFF2D2D2D);
+  static const Color surfaceHighlight = Color(0xFF2A2A2A);
+  
+  // Glow & Gradient Tokens
+  static const Color primaryGlow = Color(0x33FFC107);
+  
+  static const LinearGradient goldGradient = LinearGradient(
+    colors: [primary, primaryDark],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient cardGradient = LinearGradient(
+    colors: [surface, Color(0xFF252525)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }

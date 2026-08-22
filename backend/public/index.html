@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shivam Caterers - Undhiyu Management & POS</title>
+  <meta name="description" content="State of the art Catering Management and Billing POS Application for Shivam Caterers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Header / Navbar -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo">🍲</div>
+        <div class="brand-text">
+          <h1>Shivam Caterers</h1>
+          <span class="brand-subtitle">Undhiyu & Catering POS System</span>
+        </div>
+      </div>
+      
+      <nav class="nav-tabs" role="tablist">
+        <button id="tab-pos-btn" class="nav-tab active" onclick="switchTab('pos')">
+          <span class="tab-icon">🛒</span> POS & Order
+        </button>
+        <button id="tab-bills-btn" class="nav-tab" onclick="switchTab('bills')">
+          <span class="tab-icon">📜</span> Bill History
+        </button>
+        <button id="tab-analytics-btn" class="nav-tab" onclick="switchTab('analytics')">
+          <span class="tab-icon">📊</span> Sales Analytics
+        </button>
+        <button id="tab-admin-btn" class="nav-tab" onclick="switchTab('admin')">
+          <span class="tab-icon">⚙️</span> Menu Admin
+        </button>
+      </nav>
+
+      <div class="header-status">
+        <span id="backend-status-badge" class="status-badge connected">
+          <span class="pulse-dot"></span> Backend Active
+        </span>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="app-main">
+      
+      <!-- TAB 1: POS & ORDERING -->
+      <section id="tab-pos" class="tab-content active">
+        <div class="pos-layout">
+          <!-- Left Column: Menu Items Selection -->
+          <div class="menu-section">
+            <div class="section-top-bar">
+              <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="menu-search" placeholder="Search menu items..." oninput="filterMenuItems()">
+              </div>
+              <div id="category-chips" class="category-chips">
+                <!-- Dynamically generated categories -->
+              </div>
+            </div>
+
+            <div id="menu-grid" class="menu-grid">
+              <!-- Dynamically populated menu cards -->
+            </div>
+          </div>
+
+          <!-- Right Column: Current Cart & Billing -->
+          <div class="cart-section">
+            <div class="cart-card">
+              <div class="cart-header">
+                <h2>Current Cart Order</h2>
+                <button class="btn-clear-cart" onclick="clearCart()">Clear All</button>
+              </div>
+
+              <div id="cart-items-container" class="cart-items-container">
+                <div class="empty-cart-state">
+                  <span class="empty-icon">🛍️</span>
+                  <p>Your cart is empty</p>
+                  <span class="empty-sub">Select items from the menu to build an order</span>
+                </div>
+              </div>
+
+              <div class="cart-summary">
+                <div class="summary-row">
+                  <span>Subtotal</span>
+                  <span id="cart-subtotal" class="amount">₹0.00</span>
+                </div>
+                
+                <div class="summary-row discount-input-row">
+                  <label for="cart-discount">Discount (₹)</label>
+                  <input type="number" id="cart-discount" min="0" value="0" step="5" oninput="updateCartTotal()">
+                </div>
+
+                <div class="summary-row grand-total">
+                  <span>Grand Total</span>
+                  <span id="cart-grand-total" class="total-amount">₹0.00</span>
+                </div>
+
+                <div class="payment-method-selector">
+                  <label>Payment Method</label>
+                  <div class="payment-options">
+                    <label class="payment-option">
+                      <input type="radio" name="paymentMethod" value="cash" checked onchange="onPaymentMethodChange()">
+                      <span class="option-box">💵 Cash</span>
+                    </label>
+                    <label class="payment-option">
+                      <input type="radio" name="paymentMethod" value="upi" onchange="onPaymentMethodChange()">
+                      <span class="option-box">📱 UPI</span>
+                    </label>
+                    <label class="payment-option">
+                      <input type="radio" name="paymentMethod" value="card" onchange="onPaymentMethodChange()">
+                      <span class="option-box">💳 Card</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="customer-notes-group">
+                  <input type="text" id="cart-notes" placeholder="Add customer name / notes (optional)">
+                </div>
+
+                <button id="btn-create-bill" class="btn-checkout" onclick="checkoutBill()">
+                  <span>Complete Order & Print Bill</span> ➡️
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: BILL HISTORY -->
+      <section id="tab-bills" class="tab-content">
+        <div class="bills-container">
+          <div class="bills-header-bar">
+            <h2>Bill Records & History</h2>
+            <div class="bill-filters">
+              <input type="text" id="bill-search" placeholder="Search Bill ID or items..." oninput="filterBills()">
+              <button class="btn-secondary" onclick="loadBillHistory()">🔄 Refresh</button>
+            </div>
+          </div>
+
+          <div class="bills-table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Bill ID</th>
+                  <th>Date & Time</th>
+                  <th>Items Included</th>
+                  <th>Subtotal</th>
+                  <th>Discount</th>
+                  <th>Total Amount</th>
+                  <th>Payment</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="bills-tbody">
+                <!-- Dynamically populated bills -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: SALES ANALYTICS -->
+      <section id="tab-analytics" class="tab-content">
+        <div class="analytics-container">
+          <div class="analytics-header">
+            <h2>Sales Dashboard & Reports</h2>
+            <button class="btn-secondary" onclick="loadAnalytics()">🔄 Refresh Stats</button>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon revenue-bg">💰</div>
+              <div class="stat-info">
+                <span class="stat-label">Total Revenue</span>
+                <h3 id="stat-total-revenue">₹0.00</h3>
+              </div>
+            </div>
+            
+            <div class="stat-card">
+              <div class="stat-icon bills-bg">📋</div>
+              <div class="stat-info">
+                <span class="stat-label">Total Bills</span>
+                <h3 id="stat-total-bills">0</h3>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon avg-bg">📈</div>
+              <div class="stat-info">
+                <span class="stat-label">Avg. Order Value</span>
+                <h3 id="stat-avg-order">₹0.00</h3>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon discount-bg">🏷️</div>
+              <div class="stat-info">
+                <span class="stat-label">Total Discounts</span>
+                <h3 id="stat-total-discount">₹0.00</h3>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-charts-row">
+            <div class="chart-card">
+              <h3>🔥 Top Selling Items</h3>
+              <div id="top-items-list" class="top-items-list">
+                <!-- Dynamically populated top items -->
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <h3>💳 Payment Methods Breakdown</h3>
+              <div id="payment-breakdown-list" class="payment-breakdown-list">
+                <!-- Dynamically populated breakdown -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: MENU ADMIN -->
+      <section id="tab-admin" class="tab-content">
+        <div class="admin-layout">
+          <!-- Add Item Form -->
+          <div class="admin-card">
+            <h2>➕ Add New Menu Item</h2>
+            <form id="add-item-form" onsubmit="handleCreateMenuItem(event)">
+              <div class="form-group">
+                <label for="item-name">Item Name *</label>
+                <input type="text" id="item-name" placeholder="e.g. Surti Undhiyu" required>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="item-category">Category *</label>
+                  <select id="item-category" required>
+                    <option value="Undhiyu Special">Undhiyu Special</option>
+                    <option value="Sweets">Sweets</option>
+                    <option value="Farsan">Farsan</option>
+                    <option value="Puri & Breads">Puri & Breads</option>
+                    <option value="Snacks">Snacks</option>
+                    <option value="Beverages">Beverages</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="item-price">Price per Gram (₹) *</label>
+                  <input type="number" id="item-price" step="0.01" min="0.01" placeholder="e.g. 0.40" required>
+                  <small class="field-hint">e.g. 0.40 ₹/g = ₹400 per kg</small>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="item-icon">Emoji / Icon</label>
+                  <input type="text" id="item-icon" placeholder="🍲" value="🍲">
+                </div>
+
+                <div class="form-group">
+                  <label for="item-stock">Initial Stock (g)</label>
+                  <input type="number" id="item-stock" value="10000" min="0">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="item-description">Description</label>
+                <textarea id="item-description" rows="2" placeholder="Traditional authentic Gujarati Undhiyu..."></textarea>
+              </div>
+
+              <button type="submit" class="btn-primary">Create Menu Item</button>
+            </form>
+          </div>
+
+          <!-- Existing Items Table -->
+          <div class="admin-card">
+            <h2>📋 Manage Existing Menu Items</h2>
+            <div class="admin-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Category</th>
+                    <th>Price/Gram</th>
+                    <th>Price/Kg</th>
+                    <th>Stock</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-menu-tbody">
+                  <!-- Dynamically populated items -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Receipt / Bill Print Modal -->
+    <div id="receipt-modal" class="modal-overlay">
+      <div class="modal-content receipt-modal-content">
+        <div class="receipt-paper" id="printable-receipt">
+          <div class="receipt-header">
+            <h2>SHIVAM CATERERS</h2>
+            <p class="receipt-sub">Authentic Surti Undhiyu & Catering</p>
+            <p class="receipt-contact">Phone: +91 98765 43210 | Vadodara, Gujarat</p>
+            <div class="receipt-divider">--------------------------------</div>
+          </div>
+
+          <div class="receipt-info-row">
+            <span>Bill ID: <strong id="rec-id">#01</strong></span>
+            <span id="rec-date">2026-08-21 08:30</span>
+          </div>
+          <div class="receipt-info-row">
+            <span>Payment: <strong id="rec-payment">CASH</strong></span>
+          </div>
+
+          <div class="receipt-divider">--------------------------------</div>
+
+          <table class="receipt-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th>Amt</th>
+              </tr>
+            </thead>
+            <tbody id="rec-items-tbody">
+              <!-- Dynamically populated items -->
+            </tbody>
+          </table>
+
+          <div class="receipt-divider">--------------------------------</div>
+
+          <div class="receipt-totals">
+            <div class="rec-total-row">
+              <span>Subtotal:</span>
+              <span id="rec-subtotal">₹0.00</span>
+            </div>
+            <div class="rec-total-row">
+              <span>Discount:</span>
+              <span id="rec-discount">-₹0.00</span>
+            </div>
+            <div class="rec-total-row grand">
+              <span>TOTAL AMOUNT:</span>
+              <span id="rec-total">₹0.00</span>
+            </div>
+          </div>
+
+          <div class="receipt-footer">
+            <p>Thank you for choosing Shivam Caterers!</p>
+            <p class="small">Visit Again 🙏</p>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-primary" onclick="printReceipt()">🖨️ Print Receipt</button>
+          <button class="btn-secondary" onclick="closeReceiptModal()">Close Window</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

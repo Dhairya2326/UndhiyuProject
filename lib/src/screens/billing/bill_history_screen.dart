@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:undhiyuapp/src/models/bill_history_model.dart';
 import 'package:undhiyuapp/src/constants/app_colors.dart';
 import 'package:intl/intl.dart';
+import 'package:undhiyuapp/src/widgets/animations/fade_in_slide.dart';
 
 import 'package:undhiyuapp/src/services/api_service.dart';
 
@@ -23,6 +24,7 @@ class BillHistoryScreen extends StatefulWidget {
 
 class _BillHistoryScreenState extends State<BillHistoryScreen> {
   late List<BillRecord> _displayBills;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -40,13 +42,32 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
     }
   }
 
+  List<BillRecord> get _filteredBills {
+    if (_searchQuery.isEmpty) return _displayBills;
+    return _displayBills.where((bill) {
+      final idMatch = bill.id.toLowerCase().contains(_searchQuery.toLowerCase());
+      final methodMatch = bill.paymentMethod.toLowerCase().contains(_searchQuery.toLowerCase());
+      final itemMatch = bill.items.any((item) => item.itemName.toLowerCase().contains(_searchQuery.toLowerCase()));
+      return idMatch || methodMatch || itemMatch;
+    }).toList();
+  }
+
+  double get _totalRevenue {
+    return _displayBills.fold(0.0, (sum, bill) => sum + bill.totalAmount);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filteredBills;
+
     return Column(
       children: [
-        // Header
+        // Header Banner with Metrics
         Container(
-          color: AppColors.primary,
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
+          ),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,32 +75,61 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                   const Text(
-                    'Bill History',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Order History',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Track and manage past sales',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.primary.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                     ),
-                    child: Text(
-                      '${_displayBills.length} bills',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.payments, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          '₹${_totalRevenue.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 14),
 
+              // Search Input
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search by Order ID, Item, or Payment Method...',
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.primary),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  isDense: true,
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
             ],
           ),
         ),
@@ -88,26 +138,27 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: widget.onRefresh ?? () async {},
-            child: _displayBills.isEmpty
+            color: AppColors.primary,
+            child: filtered.isEmpty
                 ? Stack(
                     children: [
                       const SingleChildScrollView(
                         physics: AlwaysScrollableScrollPhysics(),
-                        child: SizedBox(height: 300), // Dummy height to allow pull-to-refresh
+                        child: SizedBox(height: 300),
                       ),
                       Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.history,
-                              size: 48,
-                              color: Colors.grey,
+                          children: const [
+                            Icon(
+                              Icons.history_toggle_off_rounded,
+                              size: 56,
+                              color: AppColors.textTertiary,
                             ),
-                            const SizedBox(height: 16),
-                            const Text(
+                            SizedBox(height: 16),
+                            Text(
                               'No bills recorded yet',
-                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                              style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -115,11 +166,14 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                     ],
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(8),
-                    itemCount: _displayBills.length,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filtered.length,
                     itemBuilder: (context, index) {
-                      final bill = _displayBills[_displayBills.length - 1 - index]; // Reverse order
-                      return _buildBillCard(bill);
+                      final bill = filtered[filtered.length - 1 - index]; // Reverse chronological
+                      return FadeInSlide(
+                        delay: (index % 10) * 0.05,
+                        child: _buildBillCard(bill),
+                      );
                     },
                   ),
           ),
@@ -131,7 +185,16 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
   Widget _buildBillCard(BillRecord bill) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
       child: ExpansionTile(
+        iconColor: AppColors.textSecondary,
+        collapsedIconColor: AppColors.textTertiary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -143,13 +206,15 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
+                    color: AppColors.textPrimary,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   DateFormat('dd MMM, hh:mm a').format(bill.timestamp),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Colors.grey,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -170,11 +235,11 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Divider(),
+                const Divider(color: AppColors.divider),
                 const SizedBox(height: 8),
                 const Text(
                   'Items:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 ...bill.items.map((item) => Padding(
@@ -189,30 +254,30 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                               children: [
                                 Text(
                                   item.itemName,
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                  style: const TextStyle(fontWeight: FontWeight.w500, color: AppColors.textPrimary),
                                 ),
                                 Text(
                                   '${item.quantityInGrams.toStringAsFixed(0)}g @ ₹${item.pricePerGram.toStringAsFixed(2)}/g',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                 ),
                               ],
                             ),
                           ),
                           Text(
                             '₹${item.totalPrice.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                           ),
                         ],
                       ),
                     )),
                 const SizedBox(height: 12),
-                const Divider(),
+                const Divider(color: AppColors.divider),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Subtotal:'),
-                    Text('₹${bill.subtotal.toStringAsFixed(2)}'),
+                    const Text('Subtotal:', style: TextStyle(color: AppColors.textSecondary)),
+                    Text('₹${bill.subtotal.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.textPrimary)),
                   ],
                 ),
                 if (bill.discount > 0) ...[
@@ -220,8 +285,8 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Discount:'),
-                      Text('-₹${bill.discount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red)),
+                      const Text('Discount:', style: TextStyle(color: AppColors.textSecondary)),
+                      Text('-₹${bill.discount.toStringAsFixed(2)}', style: const TextStyle(color: AppColors.error)),
                     ],
                   ),
                 ],
@@ -229,12 +294,36 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.w500)),
-                    Chip(
-                      label: Text(bill.paymentMethod.toUpperCase()),
-                      backgroundColor: bill.paymentMethod == 'upi'
-                          ? Colors.blue.shade100
-                          : Colors.green.shade100,
+                    const Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: bill.paymentMethod == 'upi'
+                            ? const Color(0xFF5C6BC0).withOpacity(0.15)
+                            : bill.paymentMethod == 'card'
+                              ? const Color(0xFF7E57C2).withOpacity(0.15)
+                              : AppColors.success.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: bill.paymentMethod == 'upi'
+                              ? const Color(0xFF5C6BC0).withOpacity(0.4)
+                              : bill.paymentMethod == 'card'
+                                ? const Color(0xFF7E57C2).withOpacity(0.4)
+                                : AppColors.success.withOpacity(0.4),
+                        ),
+                      ),
+                      child: Text(
+                        bill.paymentMethod.toUpperCase(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: bill.paymentMethod == 'upi'
+                              ? const Color(0xFF7986CB)
+                              : bill.paymentMethod == 'card'
+                                ? const Color(0xFF9575CD)
+                                : AppColors.success,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -243,8 +332,10 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Notes:'),
-                      Text(bill.notes, style: const TextStyle(fontStyle: FontStyle.italic)),
+                      const Text('Notes:', style: TextStyle(color: AppColors.textSecondary)),
+                      Flexible(
+                        child: Text(bill.notes, style: const TextStyle(fontStyle: FontStyle.italic, color: AppColors.textSecondary)),
+                      ),
                     ],
                   ),
                 ],
@@ -256,11 +347,12 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _editBill(bill),
-                          icon: const Icon(Icons.edit, color: AppColors.primary),
+                          icon: const Icon(Icons.edit, color: AppColors.primary, size: 18),
                           label: const Text('Edit / Clone', style: TextStyle(color: AppColors.primary)),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: AppColors.primary),
                             padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
@@ -268,11 +360,12 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _deleteBill(bill.id),
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                          label: const Text('Delete', style: TextStyle(color: AppColors.error)),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.red),
+                            side: const BorderSide(color: AppColors.error),
                             padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
@@ -286,6 +379,7 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
       ),
     );
   }
+
   Future<void> _editBill(BillRecord bill) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -299,7 +393,7 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -324,11 +418,12 @@ class _BillHistoryScreenState extends State<BillHistoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

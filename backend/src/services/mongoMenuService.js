@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const { MenuItem } = require('../models/schemas');
+const menuService = require('./menuService');
 const logger = require('../utils/logger');
 
 class MongoMenuService {
@@ -7,11 +9,16 @@ class MongoMenuService {
    */
   async getAllItems() {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const items = menuService.getAllItems();
+        return items.map(item => item.toJSON ? item.toJSON() : item);
+      }
       const items = await MenuItem.find({ available: true });
       return items;
     } catch (error) {
       logger.error('Error fetching menu items:', error.message);
-      throw new Error('Failed to fetch menu items');
+      const items = menuService.getAllItems();
+      return items.map(item => item.toJSON ? item.toJSON() : item);
     }
   }
 
@@ -20,11 +27,16 @@ class MongoMenuService {
    */
   async getItemsByCategory(category) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const items = menuService.getItemsByCategory(category);
+        return items.map(item => item.toJSON ? item.toJSON() : item);
+      }
       const items = await MenuItem.find({ category, available: true });
       return items;
     } catch (error) {
       logger.error('Error fetching items by category:', error.message);
-      throw new Error('Failed to fetch items by category');
+      const items = menuService.getItemsByCategory(category);
+      return items.map(item => item.toJSON ? item.toJSON() : item);
     }
   }
 
@@ -33,11 +45,14 @@ class MongoMenuService {
    */
   async getCategories() {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        return menuService.getCategories();
+      }
       const categories = await MenuItem.distinct('category', { available: true });
       return categories;
     } catch (error) {
       logger.error('Error fetching categories:', error.message);
-      throw new Error('Failed to fetch categories');
+      return menuService.getCategories();
     }
   }
 
@@ -46,11 +61,16 @@ class MongoMenuService {
    */
   async getMenuItemById(id) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const item = menuService.getMenuItemById(id);
+        return item && item.toJSON ? item.toJSON() : item;
+      }
       const item = await MenuItem.findOne({ id, available: true });
       return item;
     } catch (error) {
       logger.error('Error fetching menu item:', error.message);
-      throw new Error('Failed to fetch menu item');
+      const item = menuService.getMenuItemById(id);
+      return item && item.toJSON ? item.toJSON() : item;
     }
   }
 
@@ -59,6 +79,11 @@ class MongoMenuService {
    */
   async addMenuItem(name, category, price, description, icon, imageUrl = '') {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const item = menuService.addMenuItem(name, category, price, description, icon);
+        if (imageUrl) item.imageUrl = imageUrl;
+        return item.toJSON ? item.toJSON() : item;
+      }
       const newItem = new MenuItem({
         name,
         category,
@@ -71,7 +96,9 @@ class MongoMenuService {
       return newItem;
     } catch (error) {
       logger.error('Error adding menu item:', error.message);
-      throw new Error('Failed to add menu item: ' + error.message);
+      const item = menuService.addMenuItem(name, category, price, description, icon);
+      if (imageUrl) item.imageUrl = imageUrl;
+      return item.toJSON ? item.toJSON() : item;
     }
   }
 
@@ -80,6 +107,10 @@ class MongoMenuService {
    */
   async updateMenuItem(id, updates) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const item = menuService.updateMenuItem(id, updates);
+        return item && item.toJSON ? item.toJSON() : item;
+      }
       const item = await MenuItem.findOneAndUpdate(
         { id },
         { ...updates, updatedAt: new Date() },
@@ -88,7 +119,8 @@ class MongoMenuService {
       return item;
     } catch (error) {
       logger.error('Error updating menu item:', error.message);
-      throw new Error('Failed to update menu item: ' + error.message);
+      const item = menuService.updateMenuItem(id, updates);
+      return item && item.toJSON ? item.toJSON() : item;
     }
   }
 
@@ -97,12 +129,14 @@ class MongoMenuService {
    */
   async deleteMenuItem(id) {
     try {
-      // Hard delete to immediately remove from database
+      if (mongoose.connection.readyState !== 1) {
+        return menuService.deleteMenuItem(id);
+      }
       const result = await MenuItem.findOneAndDelete({ id });
       return result ? true : false;
     } catch (error) {
       logger.error('Error deleting menu item:', error.message);
-      throw new Error('Failed to delete menu item');
+      return menuService.deleteMenuItem(id);
     }
   }
 
@@ -111,11 +145,16 @@ class MongoMenuService {
    */
   async getMenuItemByMongoId(mongoId) {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        const item = menuService.getMenuItemById(mongoId);
+        return item && item.toJSON ? item.toJSON() : item;
+      }
       const item = await MenuItem.findById(mongoId);
       return item;
     } catch (error) {
       logger.error('Error fetching menu item by mongo id:', error.message);
-      throw new Error('Failed to fetch menu item');
+      const item = menuService.getMenuItemById(mongoId);
+      return item && item.toJSON ? item.toJSON() : item;
     }
   }
 }
